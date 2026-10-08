@@ -3,31 +3,11 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useCatalog } from '../context/CatalogContext'
 import { hairstyles } from '../data/hairstyles'
+import HairstyleImage from './HairstyleImage'
 import '../styles/hairstyles.css'
 
 const peso = (n) => `₱${Number(n).toLocaleString()}`
 const key = (s) => String(s).trim().toLowerCase()
-
-// Shows the hairstyle's OWN picture (h.img). If that exact file fails to load, a labelled
-// placeholder names the missing file; it never falls back to another style's or the service's picture.
-function HairstyleImage({ style }) {
-  const [failed, setFailed] = useState(false)
-  if (failed) {
-    const file = style.img.split('/').pop()
-    return (
-      <div role="img" aria-label={`${style.name} sample (image missing: ${file})`}
-        style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center',
-          justifyContent: 'center', gap: 4, color: '#bbb', fontSize: 12, textAlign: 'center', padding: 8 }}>
-        <span>Image missing</span>
-        <code>{file}</code>
-      </div>
-    )
-  }
-  return (
-    <img src={style.img} alt={`${style.name} sample`} loading="lazy"
-      onError={() => { console.warn(`[HairstyleGallery] missing image for "${style.name}": ${style.img}`); setFailed(true) }} />
-  )
-}
 
 // Sample hairstyle gallery. Services come from the existing catalog, so prices and durations
 // are never duplicated here. Each card opens the existing booking page with its service preselected.
