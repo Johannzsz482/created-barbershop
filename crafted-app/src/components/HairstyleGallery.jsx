@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useCatalog } from '../context/CatalogContext'
 import { hairstyles } from '../data/hairstyles'
+import ServiceImage from './ServiceImage'
 import '../styles/hairstyles.css'
 
 const peso = (n) => `₱${Number(n).toLocaleString()}`
@@ -46,7 +47,7 @@ export default function HairstyleGallery() {
               <motion.div key={h.id} initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-40px' }} transition={{ duration: 0.45, delay: i * 0.06, ease: 'easeOut' }}>
                 <Link className="hs-card" to={`/book?service=${s.service_id}`} aria-label={`Book ${s.service_name}: ${h.name}`}>
-                  <div className="hs-img"><img src={h.img} alt={`${h.name} sample`} loading="lazy" style={{ objectPosition: h.pos }} /></div>
+                  <div className="hs-img"><ServiceImage name={s.service_name} alt={`${h.name} sample`} loading="lazy" /></div>
                   <div className="hs-info">
                     <span className="hs-tag">{s.service_name}</span>
                     <h5>{h.name}</h5>

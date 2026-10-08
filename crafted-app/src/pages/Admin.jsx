@@ -17,13 +17,11 @@ import ContactMessages from '../components/ContactMessages'
 import { useContactMessages } from '../lib/useContactMessages'
 import BarberPhotoPicker from '../components/BarberPhotoPicker'
 import ReturningCustomers from '../components/ReturningCustomers'
-import { barbers as seedBarbers } from '../data/db'
 
 const STATUSES = ['Pending', 'Confirmed', 'In Progress', 'Completed', 'Cancelled']
 const TABS = ['Overview', 'Appointments', 'Users', 'Barbers', 'Services', 'Schedules', 'Messages', 'Activity']
 const WEEK = [...DAYS.slice(1), 'Sunday']
-// Specialty choices: the values already used in the project's barber data, plus any a barber currently has
-const SPECIALTIES = [...new Set(seedBarbers.map((b) => b.specialty))]
+// Specialty choices come from the live barbers catalog (useCatalog) inside the Barbers panel below.
 const bind = (form, setForm) => (k) => ({ value: form[k] ?? '', onChange: (e) => setForm({ ...form, [k]: e.target.value }) })
 
 const Switch = ({ on, onClick, label }) => <button className={`switch${on ? ' on' : ''}`} onClick={onClick} aria-label={label} aria-pressed={on}><i /></button>
@@ -166,7 +164,7 @@ function Barbers({ d }) {
         <label className="full">Login account<select value={edit.user_id ?? ''} onChange={(e) => setEdit({ ...edit, user_id: e.target.value })}><option value="">Not linked</option>
           {d.users.filter((u) => u.role === 'Barber' && (u.users_id === edit.user_id || !barbers.some((x) => x.user_id === u.users_id))).map((u) => <option key={u.users_id} value={u.users_id}>{u.first_name} {u.last_name} (@{u.username})</option>)}</select></label>
         <label className="full">Specialty<select {...f('specialty')}><option value="">Select a specialty</option>
-          {[...new Set([...SPECIALTIES, ...barbers.map((b) => b.specialty), edit.specialty].filter(Boolean))].map((sp) => <option key={sp} value={sp}>{sp}</option>)}</select></label><label className="full">Bio<textarea {...f('bio')} /></label>
+          {[...new Set([...barbers.map((b) => b.specialty), edit.specialty].filter(Boolean))].map((sp) => <option key={sp} value={sp}>{sp}</option>)}</select></label><label className="full">Bio<textarea {...f('bio')} /></label>
         <div className="full"><BarberPhotoPicker value={edit.photo_url} onChange={(v) => setEdit({ ...edit, photo_url: v })} /></div>
         <button className="btn btn-gold full" type="submit">Save</button></form>}
     </Modal>
