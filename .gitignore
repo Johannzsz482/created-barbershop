@@ -1,0 +1,23 @@
+# React / Vite
+crafted-app/node_modules/
+crafted-app/dist/
+
+# Spring Boot / Maven
+springboot-backend/target/
+
+# Uploaded user files
+springboot-backend/uploads/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db

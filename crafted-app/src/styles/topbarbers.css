@@ -1,0 +1,11 @@
+/* Admin: top 3 barbers */
+.top-barbers { display: flex; flex-direction: column; gap: 10px; }
+.tb-row { display: flex; align-items: center; gap: 14px; padding: 10px 14px; background: #1d1d1d; border: 1px solid var(--line); border-radius: 14px; }
+.tb-row.r1 { border-color: var(--gold); background: linear-gradient(160deg, #3a2f12, #221c0b); }
+.tb-rank { flex: none; width: 40px; font: 700 22px var(--serif); color: var(--muted); }
+.tb-row.r1 .tb-rank { color: var(--gold); } .tb-row.r2 .tb-rank { color: #c9c9c9; } .tb-row.r3 .tb-rank { color: #cd7f32; }
+.tb-row .avatar { flex: none; margin: 0; }
+.tb-info { min-width: 0; }
+.tb-info h4 { font: 700 18px var(--serif); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tb-info small { color: var(--muted); font-size: 13px; }
+.tb-row.r1 .tb-info small { color: var(--gold); }

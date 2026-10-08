@@ -1,0 +1,70 @@
+/* Loaded AFTER App.css. Adds the sticky header, router pages, auth, profile. */
+:root { --header-h: 80px; }
+section[id] { scroll-margin-top: var(--header-h); }
+.hero { min-height: calc(100svh - var(--header-h)); }
+
+/* Sticky header */
+.site-header { position: sticky; top: 0; z-index: 50; background: var(--bg); border-bottom: 1px solid transparent; transition: border-color .3s, box-shadow .3s; }
+.site-header.scrolled { border-bottom-color: var(--line); box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+.site-nav { position: relative; height: var(--header-h); display: flex; align-items: center; justify-content: center; padding: 0 24px; }
+.nav-links { display: flex; gap: clamp(28px, 6vw, 110px); }
+.nav-links a { position: relative; display: block; padding: 6px 0; font-size: 16px; font-weight: 600; text-transform: uppercase; transition: color .2s; }
+.nav-links a:hover, .nav-links a.active { color: var(--gold); }
+.nav-underline { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--gold); }
+.nav-user { position: absolute; right: clamp(24px, 12vw, 260px); top: 50%; transform: translateY(-50%); display: flex; transition: color .2s; }
+.nav-user:hover { color: var(--gold); }
+.nav-toggle, .nav-mobile { display: none; }
+@media (max-width: 900px) {
+  .nav-links { display: none; }
+  .site-nav { justify-content: flex-end; }
+  .nav-user { right: 76px; }
+  .nav-toggle { display: flex; flex-direction: column; gap: 5px; background: none; border: 0; padding: 8px; cursor: pointer; }
+  .nav-toggle span { width: 24px; height: 2px; background: var(--text); }
+  .nav-mobile { display: block; overflow: hidden; padding: 0 24px; background: var(--bg); }
+  .nav-mobile a { display: block; padding: 14px 0; font-weight: 600; text-transform: uppercase; border-top: 1px solid var(--line); }
+}
+
+/* Plain pages */
+.page-title { text-align: center; padding: 70px 24px 56px; border-bottom: 1px solid var(--line); }
+.page-title h1 { font: 700 clamp(40px, 6vw, 64px)/1.1 var(--serif); }
+.page-body { width: min(1024px, 100% - 48px); margin: 0 auto; padding: 80px 0 120px; }
+
+/* Contact card (home) */
+.contact-card { width: min(520px, 100% - 48px); margin: 0 auto; padding: 36px 40px 40px; background: var(--card); border: 1px solid var(--gold); border-radius: 6px; }
+.contact-card h2 { font-size: 40px; }
+.contact-card .lead { margin-top: 24px; font-size: 18px; }
+.contact-card form { margin-top: 40px; }
+.contact-card .field { margin-bottom: 32px; }
+.contact-card label { font-size: 13px; text-transform: uppercase; }
+.contact-card input, .contact-card textarea { border: 0; border-bottom: 1px solid #6a6a6a; border-radius: 0; padding: 10px 4px; font-size: 15px; }
+
+/* Auth */
+.auth-page { min-height: 100svh; position: relative; display: flex; align-items: flex-start; padding: 90px 6vw 40px; background: linear-gradient(rgba(0,0,0,.55), rgba(0,0,0,.65)), var(--auth-bg) center/cover, #222; }
+.auth-home { position: absolute; top: 28px; left: 32px; color: var(--muted); font-size: 15px; transition: color .2s; }
+.auth-home:hover { color: var(--gold); }
+.auth-wrap { width: min(428px, 100%); text-align: center; }
+.auth-wrap.right { margin-left: auto; margin-right: clamp(0px, 6vw, 120px); }
+.auth-wrap.center { margin: 0 auto; }
+.auth-wrap h1 { font: 700 30px var(--serif); margin-bottom: 20px; }
+.auth-card.auth-form { width: 100%; margin: 0; padding: 36px 38px; display: flex; flex-direction: column; gap: 22px; text-align: left; background: rgba(28,28,28,.94); border: 1px solid var(--gold); border-radius: 6px; }
+.auth-field span { display: block; font-size: 16px; margin-bottom: 4px; }
+.auth-field div { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #6a6a6a; padding: 8px 4px; color: var(--muted); transition: border-color .2s, color .2s; }
+.auth-field div:focus-within { border-color: var(--gold); color: var(--gold); }
+.auth-field input { border: 0; border-radius: 0; padding: 0; font-size: 16px; }
+.auth-field input:focus-visible { outline: none; }
+.auth-error { min-height: 20px; margin: -6px 0; color: #e5736b; font-size: 15px; text-align: center; }
+.auth-form .btn { height: 52px; width: 100%; font-size: 17px; }
+.auth-link { background: none; border: 0; color: var(--text); font: 400 16px var(--sans); cursor: pointer; text-align: center; }
+.auth-link:hover { color: var(--gold); }
+.demo-hint { margin-top: 18px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.demo-hint b { color: var(--text); font-weight: 600; }
+@media (max-width: 700px) { .auth-wrap.right { margin: 0 auto; } .auth-page { padding-top: 80px; } }
+
+/* Profile */
+.profile-card { width: min(956px, 100%); margin: 0 auto; padding: 48px 20px 56px; text-align: center; background: var(--card); border: 1px solid var(--gold); border-radius: 6px; }
+.profile-card h2 { font: 700 32px var(--serif); margin: 24px 0 36px; }
+.profile-card dl { width: min(680px, 100%); margin: 0 auto 28px; text-align: left; border-top: 1px solid var(--line); }
+.profile-card .row { display: flex; justify-content: space-between; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--line); }
+.profile-card dt { color: var(--muted); text-transform: uppercase; font-size: 15px; }
+.profile-card dd { color: var(--gold); font-weight: 700; font-size: 15px; word-break: break-all; text-align: right; }
+.profile-card .btn { width: min(680px, 100%); height: 54px; }

@@ -1,0 +1,7 @@
+/* Red highlight and message for invalid sign-in / sign-up fields. Only adds styles; nothing existing is overridden. */
+.auth-field.invalid > span { color: #e5736b; }
+.auth-field.invalid > div { border-color: #e5736b; box-shadow: 0 0 0 1px #e5736b; color: #e5736b; }
+.auth-field.invalid input { border-color: #e5736b; }
+.auth-field .field-error { display: block; margin-top: 4px; color: #e5736b; font-size: 13px; line-height: 1.3; }
+/* Subtle valid state (sign-up) */
+.auth-field.valid > div { border-color: rgba(74, 222, 128, .7); }

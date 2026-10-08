@@ -1,0 +1,65 @@
+/* /book visual polish (Batch 8): UI only, no behaviour changes */
+
+/* Service cards: photo on top, clear selected state */
+.svc-card { position: relative; overflow: hidden; display: flex; flex-direction: column; }
+.svc-img { margin: -20px -20px 14px; aspect-ratio: 16 / 9; overflow: hidden; background: #2c2c2c; }
+.svc-img img { display: block; width: 100%; height: 100%; object-fit: cover; filter: brightness(.85); transition: transform .4s, filter .3s; }
+.svc-card:hover .svc-img img { transform: scale(1.06); filter: brightness(1); }
+.svc-card.on .svc-img img { filter: brightness(1); }
+.svc-card p { flex: 1; }
+.svc-card small { align-self: flex-start; padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px; }
+.svc-card.on small { border-color: var(--gold); color: var(--gold); }
+.svc-card.on, .barber-card.on { border-color: var(--gold); }
+.svc-card.on::after, .barber-card.on::after { content: "\2713  Selected"; position: absolute; top: 10px; right: 10px; padding: 3px 12px; border-radius: 999px; background: var(--gold); color: #1c1c1c; font: 700 12px var(--sans); box-shadow: 0 4px 12px rgba(0, 0, 0, .4); }
+.barber-card { position: relative; }
+.svc-card:focus-visible, .barber-card:focus-visible, .day:focus-visible, .slot:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+/* Selected service summary */
+.sel-bar { display: flex; align-items: center; gap: 14px; margin: 20px 0 0; padding: 10px 16px 10px 10px; border: 1px solid var(--gold); border-radius: 14px; background: linear-gradient(160deg, #3a2f12, #221c0b); text-align: left; }
+.panel > .sel-bar:first-of-type { margin-top: 0; }
+.sel-bar + .barber-grid { margin-top: 18px; }
+.sel-bar img { flex: none; width: 76px; height: 56px; object-fit: cover; border-radius: 10px; }
+.sel-name { flex: 1; min-width: 0; }
+.sel-name small { color: var(--gold); font: 700 11px var(--sans); text-transform: uppercase; letter-spacing: .08em; }
+.sel-name h4 { font: 700 20px var(--serif); color: var(--text); }
+.sel-meta { display: flex; flex-direction: column; align-items: flex-end; }
+.sel-meta b { color: var(--gold); font: 700 20px var(--serif); }
+.sel-meta span { color: var(--muted); font-size: 13px; }
+
+/* Barbers */
+.barber-card .avatar { margin-inline: auto; }
+.barber-card.on .avatar { box-shadow: 0 0 0 3px var(--gold), 0 14px 30px rgba(0, 0, 0, .45); }
+.barber-card small { display: inline-block; padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px; }
+
+/* Calendar: available days stand out, unavailable ones fade back */
+.day:disabled { opacity: .35; background: transparent; border-color: transparent; }
+.day.open:not(.on) { background: #2a2616; border-color: rgba(255, 200, 87, .45); color: var(--text); }
+.day.open:not(.on):hover { border-color: var(--gold); }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 16px 0 0; padding: 0; list-style: none; color: var(--muted); font-size: 12px; }
+.legend li { display: flex; align-items: center; gap: 6px; }
+.lg { width: 14px; height: 14px; border-radius: 4px; border: 1px solid transparent; }
+.lg.open { background: #2a2616; border-color: rgba(255, 200, 87, .45); }
+.lg.on { background: var(--gold); border-color: var(--gold); }
+.lg.today { box-shadow: inset 0 0 0 1px var(--gold); background: #1d1d1d; }
+.lg.off { background: #1d1d1d; opacity: .5; }
+.lg.booked { background: #2a1d1c; border-color: #8a4440; }
+
+/* Time slots */
+.slot-title { color: var(--gold); letter-spacing: .02em; }
+.slot:disabled:not(.booked) { opacity: .3; background: transparent; }
+.pick-sum { margin-top: 18px; padding: 12px 16px; border: 1px solid var(--gold); border-radius: 12px; background: #2a2616; color: var(--text); }
+.pick-sum b { color: var(--gold); }
+
+@media (max-width: 700px) {
+  .panel { padding: 22px 16px 26px; }
+  .svc-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+  .svc-card { padding: 14px; }
+  .svc-img { margin: -14px -14px 12px; }
+  .svc-card h3, .svc-card b { font-size: 17px; }
+  .svc-card.on::after, .barber-card.on::after { top: 6px; right: 6px; padding: 2px 9px; font-size: 11px; }
+  .barber-grid { grid-template-columns: 1fr; }
+  .cal { gap: 4px; } .day { height: 40px; }
+  .slots { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+  .sel-bar img { width: 56px; height: 44px; } .sel-name h4, .sel-meta b { font-size: 17px; }
+}
+@media (max-width: 400px) { .svc-grid { grid-template-columns: 1fr; } }

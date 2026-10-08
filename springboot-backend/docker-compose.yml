@@ -1,0 +1,16 @@
+# Local MySQL for development. Reads DB_PASSWORD from a .env file next to this file.
+services:
+  mysql:
+    image: mysql:8
+    container_name: barbershop-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: barbershopDB
+      TZ: Asia/Manila
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+volumes:
+  mysql_data:

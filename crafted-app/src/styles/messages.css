@@ -1,0 +1,12 @@
+/* Admin: contact messages */
+.msg-empty { padding: 28px 0; }
+.msg-tbl td { vertical-align: top; }
+.msg-tbl .msg-body { min-width: 220px; max-width: 380px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text); }
+.msg-tbl a { color: var(--gold); overflow-wrap: anywhere; }
+.msg-tbl tr.unread .msg-name { font-weight: 700; color: var(--gold); }
+.msg-tbl tr.unread .msg-name::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: var(--gold); }
+
+/* Unread rows can be clicked to mark them as read */
+.msg-tbl tr.unread { cursor: pointer; }
+.msg-tbl tr.unread:hover td { background: #272727; }
+.msg-mark { margin-top: 8px; }

@@ -1,0 +1,13 @@
+/* Admin: returning customers */
+.returning { margin-bottom: 24px; }
+.ret-sum { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+.ret-sum > div { padding: 14px 16px; background: #1d1d1d; border: 1px solid var(--line); border-radius: 14px; }
+.ret-sum small { display: block; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+.ret-sum b { color: var(--gold); font: 700 26px var(--serif); }
+.ret-row { display: flex; align-items: center; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.ret-row .avatar { margin: 0; border-width: 2px; }
+.ret-row .avatar span { font-size: 16px; }
+.ret-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ret-row b { color: var(--gold); white-space: nowrap; }
+.ret-more { margin-top: 12px; font-size: 13px; }
+@media (max-width: 600px) { .ret-sum b { font-size: 22px; } }
