@@ -89,7 +89,7 @@ public class SecurityConfig {
     // Also supports the deployed frontend through app.cors.origins.
     @Bean
     public CorsConfigurationSource corsConfigurationSource(
-            @Value("${app.cors.origins:http://localhost:*,http://127.0.0.1:*}")
+            @Value("${app.cors.origins:http://localhost:*,http://127.0.0.1:*,https://crafted-barbershop.netlify.app}")
             String origins) {
 
         CorsConfiguration cors = new CorsConfiguration();
