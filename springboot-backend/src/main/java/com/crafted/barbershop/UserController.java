@@ -77,12 +77,14 @@ public class UserController {
         return n != null && n > 0;
     }
 
-    // PUT /api/users/{id}: a customer edits their own first name, last name, username, email and phone.
+    // PUT /api/users/{id}: customers, barbers and admins edit their own first name, last name, username, email and phone.
     // Nothing else on the account (password, role, active flag, picture) can be changed here.
+    // A barber's name is also copied to their public barber profile so the website shows the same name.
     @PutMapping("/{id}")
+    @Transactional
     public ResponseEntity<?> updateProfile(@PathVariable long id, @RequestBody ProfileRequest body, HttpServletRequest req) {
-        if (id != Api.uid(req) || !"CUSTOMER".equals(Api.role(req))) {
-            return Api.err(HttpStatus.FORBIDDEN, "Only customers can edit their own profile.");
+        if (id != Api.uid(req)) {
+            return Api.err(HttpStatus.FORBIDDEN, "You can only edit your own profile.");
         }
         String first = clean(body.firstName());
         String last = clean(body.lastName());
@@ -108,6 +110,9 @@ public class UserController {
             if (usernameTaken(username, id)) return fieldError(HttpStatus.CONFLICT, "username", "That username is already taken.");
             if (emailTaken(email, id)) return fieldError(HttpStatus.CONFLICT, "email", "That email is already registered.");
             throw e;
+        }
+        if (isBarber(req)) {
+            jdbc.update("UPDATE barbers SET first_name = ?, last_name = ? WHERE user_id = ?", first, last, id);
         }
 
         Map<String, Object> saved = new LinkedHashMap<>();   // exactly what was stored, so the screen shows the same
@@ -136,6 +141,8 @@ public class UserController {
     @PutMapping("/{id}/photo")
     public ResponseEntity<?> uploadPhoto(@PathVariable long id, @RequestParam("file") MultipartFile file, HttpServletRequest req) {
         if (id != Api.uid(req)) return Api.err(HttpStatus.FORBIDDEN, "You can only change your own picture.");
+        boolean barber = isBarber(req);
+        if (barber && !hasBarberProfile(id)) return Api.err(HttpStatus.NOT_FOUND, "No barber profile is linked to this account.");
         if (file.isEmpty()) return Api.err(HttpStatus.BAD_REQUEST, "Choose an image to upload.");
         if (file.getSize() > MAX_PHOTO_BYTES) return Api.err(HttpStatus.PAYLOAD_TOO_LARGE, "That image is larger than 5 MB.");
 
@@ -160,10 +167,10 @@ public class UserController {
             return Api.err(HttpStatus.INTERNAL_SERVER_ERROR, "The picture could not be saved. Please try again.");
         }
 
-        String previous = currentPhoto(id);
+        String previous = currentPhoto(id, barber);
         String url = PHOTO_PREFIX + name;
         try {
-            jdbc.update("UPDATE users SET photo_url = ? WHERE users_id = ?", url, id);
+            savePhoto(id, barber, url);
         } catch (RuntimeException e) {
             deleteAvatarFile(PHOTO_PREFIX + name);   // don't leave an unused file behind
             throw e;
@@ -176,15 +183,33 @@ public class UserController {
     @DeleteMapping("/{id}/photo")
     public ResponseEntity<?> removePhoto(@PathVariable long id, HttpServletRequest req) {
         if (id != Api.uid(req)) return Api.err(HttpStatus.FORBIDDEN, "You can only change your own picture.");
-        String previous = currentPhoto(id);
-        jdbc.update("UPDATE users SET photo_url = NULL WHERE users_id = ?", id);
+        boolean barber = isBarber(req);
+        if (barber && !hasBarberProfile(id)) return Api.err(HttpStatus.NOT_FOUND, "No barber profile is linked to this account.");
+        String previous = currentPhoto(id, barber);
+        savePhoto(id, barber, null);
         deleteAvatarFile(previous);
         return ResponseEntity.ok(Map.of("message", "Picture removed."));
     }
 
-    private String currentPhoto(long id) {
-        List<String> rows = jdbc.queryForList("SELECT photo_url FROM users WHERE users_id = ?", String.class, id);
+    private static boolean isBarber(HttpServletRequest req) {
+        return "BARBER".equals(Api.role(req));
+    }
+
+    private boolean hasBarberProfile(long userId) {
+        Integer n = jdbc.queryForObject("SELECT COUNT(*) FROM barbers WHERE user_id = ?", Integer.class, userId);
+        return n != null && n > 0;
+    }
+
+    // A barber's picture is the public one (barbers.photo_url); everyone else's is users.photo_url
+    private String currentPhoto(long id, boolean barber) {
+        List<String> rows = jdbc.queryForList(
+            barber ? "SELECT photo_url FROM barbers WHERE user_id = ?" : "SELECT photo_url FROM users WHERE users_id = ?",
+            String.class, id);
         return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    private void savePhoto(long id, boolean barber, String url) {
+        jdbc.update(barber ? "UPDATE barbers SET photo_url = ? WHERE user_id = ?" : "UPDATE users SET photo_url = ? WHERE users_id = ?", url, id);
     }
 
     // JPG, PNG or WEBP by file signature; null for anything else (SVG, GIF, PDF, renamed files...)

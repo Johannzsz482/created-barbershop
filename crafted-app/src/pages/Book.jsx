@@ -3,30 +3,23 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import Page from '../components/Page'
 import Avatar from '../components/Avatar'
+import ServiceImage from '../components/ServiceImage'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
 import { useCatalog } from '../context/CatalogContext'
 import { useSlots } from '../lib/useSlots'
 import { DAYS, toHHMM, fmt12, iso, peso, fullName, prettyDate } from '../lib/time'
-import { hairstyles } from '../data/hairstyles'
 import '../styles/booking.css'
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const STEPS = ['Service', 'Barber', 'Schedule', 'Review']
 
-// Picture for a service: reuse the first sample-hairstyle photo of that service (Batch 6), else a neutral shop photo
-function svcImg(name) {
-  const h = hairstyles.find((x) => x.service.toLowerCase() === String(name).trim().toLowerCase())
-  return h ? { src: h.img, pos: h.pos } : { src: '/assets/tools_b&w.png', pos: '50% 50%' }
-}
-
 // Compact "selected service" summary: picture, name, price, duration
 function ServiceBar({ service }) {
   if (!service) return null
-  const img = svcImg(service.service_name)
   return (
     <div className="sel-bar">
-      <img src={img.src} alt="" style={{ objectPosition: img.pos }} />
+      <ServiceImage name={service.service_name} />
       <div className="sel-name"><small>Selected service</small><h4>{service.service_name}</h4></div>
       <div className="sel-meta"><b>{peso(service.price)}</b><span>{service.duration_minutes} mins</span></div>
     </div>
@@ -129,7 +122,7 @@ export default function Book() {
           <div className="svc-grid">
             {bookable.map((s) => (
               <motion.button key={s.service_id} whileHover={{ y: -3 }} whileTap={{ scale: 0.98 }} className={`svc-card${sel.service === s.service_id ? ' on' : ''}`} aria-pressed={sel.service === s.service_id} onClick={() => setSel({ service: s.service_id, barber: null, date: null, time: null })}>
-                <div className="svc-img"><img src={svcImg(s.service_name).src} alt="" loading="lazy" style={{ objectPosition: svcImg(s.service_name).pos }} /></div>
+                <div className="svc-img"><ServiceImage name={s.service_name} loading="lazy" /></div>
                 <div className="top"><h3>{s.service_name}</h3><b>{peso(s.price)}</b></div>
                 <p>{s.description}</p>
                 <small>{s.duration_minutes} mins</small>

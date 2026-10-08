@@ -6,17 +6,17 @@ import Modal from '../components/Modal'
 import { Field } from './Auth'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
+import Avatar from '../components/Avatar'
 import { fileUrl } from '../api'
 import { cleanEmail, cleanUsername, rules } from '../lib/validate'
 
-const mask = (p) => (p.length > 3 ? p[0] + '*'.repeat(7) + p.slice(-2) : '*'.repeat(7))
 const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const PHOTO_MAX_MB = 5   // the backend enforces the same limits
 const placeholder = <svg width="64" height="82" viewBox="0 0 22 28" fill="none" stroke="#8c8c8c" strokeWidth="2.5"><circle cx="11" cy="6" r="3.5" /><rect x="3" y="14" width="16" height="11" rx="5.5" /></svg>
 const fmtDate = (d) => new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 
 export default function Profile() {
-  const { user, logout, changePassword, updateProfile, changePhoto, removePhoto, deleteAccount } = useAuth()
+  const { user, myBarber, logout, changePassword, updateProfile, changePhoto, removePhoto, deleteAccount } = useAuth()
   const { cancelActiveFor } = useData()
   const navigate = useNavigate()
   const [modal, setModal] = useState(null) // 'pw' | 'del' | 'photo' | 'edit' | null
@@ -35,11 +35,15 @@ export default function Profile() {
 
   // Free the preview address once it is replaced, cleared or the page closes
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview) }, [preview])
-  const saved = user.photo_url && broken !== user.photo_url ? fileUrl(user.photo_url) : ''
+  // A barber's picture is their public barber photo; customers and admins use their own account picture
+  const isBarber = user.role === 'Barber'
+  const photoUrl = isBarber ? myBarber?.photo_url : user.photo_url
+  const canPhoto = !isBarber || !!myBarber   // an unlinked barber account has no public profile to put a photo on
+  const saved = photoUrl && broken !== photoUrl ? fileUrl(photoUrl) : ''
 
   const rows = [
     ['User ID', String(user.users_id).padStart(3, '0')], ['Username', '@' + user.username], ['Email', user.email],
-    ['Phone', user.phone || '—'], ['Password', mask(user.password)], ['Role', user.role], ['Created At', fmtDate(user.created_at)],
+    ['Phone', user.phone || '—'], ['Role', user.role], ['Created At', fmtDate(user.created_at)],
   ]
 
   const submitPw = async (e) => {
@@ -112,9 +116,11 @@ export default function Profile() {
       <div className="page-title"><h1>PROFILE</h1></div>
       <section className="page-body">
         <motion.div className="profile-card" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.45 }}>
-          {saved
-            ? <div className="avatar" style={{ width: 104, height: 104 }}><img src={saved} alt={user.first_name} onError={() => setBroken(user.photo_url)} /></div>
-            : placeholder}
+          {isBarber && myBarber
+            ? <Avatar barber={myBarber} size={104} />
+            : saved
+              ? <div className="avatar" style={{ width: 104, height: 104 }}><img src={saved} alt={user.first_name} onError={() => setBroken(photoUrl)} /></div>
+              : placeholder}
           <h2>{user.first_name} {user.last_name}</h2>
           <dl>
             {rows.map(([k, v], i) => (
@@ -125,9 +131,9 @@ export default function Profile() {
           </dl>
           <div className="profile-actions">
             <button className="btn btn-light" onClick={() => { logout(); navigate('/') }}>Log out</button>
-            {user.role === 'Customer' && <button className="btn btn-outline" onClick={openEdit}>Edit profile</button>}
+            <button className="btn btn-outline" onClick={openEdit}>Edit profile</button>
             <button className="btn btn-outline" onClick={() => setModal('pw')}>Change password</button>
-            {user.role === 'Customer' && <button className="btn btn-outline" onClick={() => setModal('photo')}>Change picture</button>}
+            {canPhoto && <button className="btn btn-outline" onClick={() => setModal('photo')}>Change picture</button>}
             {user.role === 'Customer' && <button className="link-danger" onClick={() => setModal('del')}>Delete my account</button>}
           </div>
         </motion.div>
@@ -162,16 +168,18 @@ export default function Profile() {
       <Modal open={modal === 'photo'} onClose={close} title="Change picture">
         <form className="stack" onSubmit={submitPhoto} noValidate>
           <div style={{ display: 'grid', placeItems: 'center' }}>
-            {preview || saved
-              ? <div className="avatar" style={{ width: 104, height: 104 }}><img src={preview || saved} alt="Picture preview" /></div>
-              : placeholder}
+            {!preview && isBarber && myBarber
+              ? <Avatar barber={myBarber} size={104} />
+              : preview || saved
+                ? <div className="avatar" style={{ width: 104, height: 104 }}><img src={preview || saved} alt="Picture preview" /></div>
+                : placeholder}
           </div>
           <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={onPick} />
           <button className="btn btn-outline" type="button" onClick={() => fileRef.current?.click()}>Choose image from device</button>
           <p className="muted center">JPG, PNG or WEBP, up to {PHOTO_MAX_MB} MB.</p>
           <p className="auth-error" role="alert">{error}</p>
           <div className="row-btns"><button className="btn btn-gold" type="submit" disabled={!file || saving}>Save picture</button><button className="btn btn-outline" type="button" onClick={close}>Cancel</button></div>
-          {user.photo_url && <button className="link-danger" type="button" disabled={saving} onClick={submitRemove}>Remove picture</button>}
+          {photoUrl && <button className="link-danger" type="button" disabled={saving} onClick={submitRemove}>Remove picture</button>}
         </form>
       </Modal>
 

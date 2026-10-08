@@ -84,7 +84,6 @@ export function SignIn() {
         <button className="btn btn-light" type="submit">Sign In</button>
         <Link className="btn btn-outline" to="/signup">Create an account</Link>
       </form>
-      <p className="demo-hint">Demo logins: <b>angelaken / angela123</b> (customer) · <b>nel / nel123</b> (barber) · <b>admin / admin123</b></p>
     </Shell>
   )
 }
@@ -105,7 +104,8 @@ export function SignUp() {
   }
   const blur = (k) => () => setTouched((t) => ({ ...t, [k]: true }))
   // a message from the backend wins; otherwise show the live browser check once the field has been used
-  const shown = (k) => serverErr[k] || (touched[k] ? errors[k] : '')
+  // The email is checked live while typing (as soon as something is entered); other fields wait until they have been used.
+  const shown = (k) => serverErr[k] || (touched[k] || (k === 'email' && f.email !== '') ? errors[k] : '')
   const ok = (k) => f[k] !== '' && !errors[k] && !serverErr[k] // subtle green once the value passes the same rules
 
   const submit = async (e) => {

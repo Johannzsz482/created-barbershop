@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 
 export default function Footer() {
+  const { user } = useAuth()
   return (
     <footer>
       <div className="wrap">
@@ -18,7 +20,7 @@ export default function Footer() {
               <li><Link to="/craftsmen">Barbers</Link></li>
               <li><Link to="/#services">Gallery</Link></li>
               <li><Link to="/#contact">Contact</Link></li>
-              <li><Link to="/book">Book Now</Link></li>
+              {user?.role !== 'Admin' && <li><Link to="/book">Book Now</Link></li>}
             </ul>
           </div>
           <div>

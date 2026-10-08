@@ -2,12 +2,13 @@ import { useRef, useState } from 'react'
 import { api } from '../api'
 import Modal from './Modal'
 
-const FIELDS = ['name', 'email', 'msg']
+const FIELDS = ['firstName', 'lastName', 'email', 'msg']
 
 export default function ContactForm() {
   const formRef = useRef(null)
   const [values, setValues] = useState({
-    name: '',
+    firstName: '',
+    lastName: '',
     email: '',
     msg: '',
   })
@@ -57,7 +58,7 @@ export default function ContactForm() {
     setStatus('Sending...')
 
     const r = await api('/contact', 'POST', {
-      name: values.name.trim(),
+      name: `${values.firstName.trim()} ${values.lastName.trim()}`,
       email: values.email.trim(),
       message: values.msg.trim(),
     })
@@ -74,7 +75,8 @@ export default function ContactForm() {
     setOk({})
 
     setValues({
-      name: '',
+      firstName: '',
+      lastName: '',
       email: '',
       msg: '',
     })
@@ -88,14 +90,28 @@ export default function ContactForm() {
       onSubmit={handleSubmit}
       noValidate
     >
-      <div className={`field${invalid.name ? ' invalid' : ok.name ? ' valid' : ''}`}>
-        <label htmlFor="name">Name</label>
+      <div className={`field${invalid.firstName ? ' invalid' : ok.firstName ? ' valid' : ''}`}>
+        <label htmlFor="firstName">First Name</label>
 
         <input
-          id="name"
+          id="firstName"
           type="text"
-          placeholder="Juan Dela Cruz"
-          value={values.name}
+          placeholder="Juan"
+          autoComplete="given-name"
+          value={values.firstName}
+          onChange={handleChange}
+        />
+      </div>
+
+      <div className={`field${invalid.lastName ? ' invalid' : ok.lastName ? ' valid' : ''}`}>
+        <label htmlFor="lastName">Last Name</label>
+
+        <input
+          id="lastName"
+          type="text"
+          placeholder="Dela Cruz"
+          autoComplete="family-name"
+          value={values.lastName}
           onChange={handleChange}
         />
       </div>

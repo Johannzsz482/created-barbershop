@@ -4,8 +4,10 @@ import Page from '../components/Page'
 import Avatar from '../components/Avatar'
 import { useCatalog } from '../context/CatalogContext'
 import { fullName } from '../lib/time'
+import { useAuth } from '../context/AuthContext'
 
 export default function Craftsmen() {
+  const { user } = useAuth()
   const { barbers, services, schedules, barberServices } = useCatalog()
   const list = barbers.filter((b) => b.is_active)
   return (
@@ -28,7 +30,7 @@ export default function Craftsmen() {
             </motion.article>
           )
         })}
-        <div style={{ textAlign: 'center', marginTop: 48 }}><Link className="btn btn-gold" to="/book">Book Now &rarr;</Link></div>
+        {user?.role !== 'Admin' && <div style={{ textAlign: 'center', marginTop: 48 }}><Link className="btn btn-gold" to="/book">Book Now &rarr;</Link></div>}
       </section>
     </Page>
   )

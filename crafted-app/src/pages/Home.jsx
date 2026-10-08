@@ -5,6 +5,7 @@ import Page from '../components/Page'
 import Gallery from '../components/Gallery'
 import HairstyleGallery from '../components/HairstyleGallery'
 import ContactForm from '../components/ContactForm'
+import { useAuth } from '../context/AuthContext'
 
 const up = (delay = 0) => ({
   initial: { opacity: 0, y: 24 },
@@ -19,6 +20,7 @@ const reveal = {
 }
 
 export default function Home() {
+  const { user } = useAuth()
   const { hash } = useLocation()
   useEffect(() => {
     if (hash) document.querySelector(hash)?.scrollIntoView({ behavior: 'smooth' })
@@ -33,7 +35,7 @@ export default function Home() {
           <motion.h1 {...up(0.1)}>CRAFTED</motion.h1>
           <motion.p className="tag" {...up(0.3)}>Made with precision.</motion.p>
           <motion.div className="cta" {...up(0.5)}>
-            <Link className="btn btn-light" to="/book">Book Now</Link>
+            {user?.role !== 'Admin' && <Link className="btn btn-light" to="/book">Book Now</Link>}
             <Link className="btn btn-outline" to="/craftsmen">Our Craftsmen &rarr;</Link>
           </motion.div>
         </div>
@@ -44,7 +46,7 @@ export default function Home() {
           <motion.div {...reveal}>
             <h2>Define Your Style</h2>
             <p>A personalized consultation focused on understanding your preferences and defining a style that complements your features and individual character.</p>
-            <Link className="btn btn-gold" to="/book">Book Now &rarr;</Link>
+            {user?.role !== 'Admin' && <Link className="btn btn-gold" to="/book">Book Now &rarr;</Link>}
           </motion.div>
           <ol className="steps">
             {['Understand your Preferences', 'Evaluate Your Features', 'Finalize Your Style'].map((s, i) => (

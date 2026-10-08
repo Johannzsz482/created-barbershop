@@ -16,6 +16,8 @@ export function AuthProvider({ children }) {
   // The password hash never leaves the server; this placeholder is only so the profile can show stars
   const users = store.users.filter((u) => u.is_active).map((u) => ({ ...u, password: '••••••••' }))
   const user = users.find((u) => u.users_id === userId) ?? null
+  // A barber's public profile (the one the website shows); null for customers, admins and unlinked accounts
+  const myBarber = user?.role === 'Barber' ? store.barbers.find((b) => b.user_id === user.users_id) ?? null : null
 
   const begin = async (data) => {
     setToken(data.token); setSession(data.user.users_id); setUserId(data.user.users_id)
@@ -53,12 +55,21 @@ export function AuthProvider({ children }) {
   const updateProfile = async (fields) => {
     const r = await api(`/users/${userId}`, 'PUT', fields)
     if (!r.ok) return { ok: false, error: r.error || 'Could not save your profile.', field: r.data?.field }
-    patch((s) => ({ ...s, users: s.users.map((u) => (u.users_id === userId ? { ...u, ...r.data } : u)) }))
+    patch((s) => ({
+      ...s,
+      users: s.users.map((u) => (u.users_id === userId ? { ...u, ...r.data } : u)),
+      // a barber's name is copied to their public profile by the backend; mirror it here
+      barbers: user?.role === 'Barber'
+        ? s.barbers.map((b) => (b.user_id === userId ? { ...b, first_name: r.data.first_name, last_name: r.data.last_name } : b))
+        : s.barbers,
+    }))
     return { ok: true }
   }
 
-  // Show a new picture (or none) straight away by updating my user in the shared store
-  const showPhoto = (url) => patch((s) => ({ ...s, users: s.users.map((u) => (u.users_id === userId ? { ...u, photo_url: url } : u)) }))
+  // Show a new picture (or none) straight away. A barber's picture is the public barber photo; others use their user.
+  const showPhoto = (url) => patch((s) => (user?.role === 'Barber'
+    ? { ...s, barbers: s.barbers.map((b) => (b.user_id === userId ? { ...b, photo_url: url } : b)) }
+    : { ...s, users: s.users.map((u) => (u.users_id === userId ? { ...u, photo_url: url } : u)) }))
 
   // Upload (or replace) my profile picture; the backend checks the file and sends back its /uploads/... path
   const changePhoto = async (file) => {
@@ -95,7 +106,7 @@ export function AuthProvider({ children }) {
     )
   }
 
-  return <AuthContext.Provider value={{ user, users, login, signup, logout, changePassword, updateProfile, changePhoto, removePhoto, deleteAccount }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ user, myBarber, users, login, signup, logout, changePassword, updateProfile, changePhoto, removePhoto, deleteAccount }}>{children}</AuthContext.Provider>
 }
 
 export const useAuth = () => useContext(AuthContext)

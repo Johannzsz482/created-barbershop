@@ -77,7 +77,7 @@ export default function Dashboard() {
     ["Today's Appointments", live.filter((a) => a.appointment_date === today).length, 'var(--text)', () => { setDay(today); scrollToId('dash-appointments') }],
     ['Upcoming', live.filter((a) => a.appointment_date > today && a.status !== 'Completed').length, 'var(--gold)', () => scrollToId('dash-calendar')],
     ['In Chair', mine.filter((a) => a.status === 'In Progress').length, '#9db4ff', () => { setDay(today); scrollToId('dash-appointments') }],
-    ['Completed', mine.filter((a) => a.status === 'Completed').length, '#4ade80'],
+    ['Completed', mine.filter((a) => a.status === 'Completed').length, '#4ade80', () => scrollToId('dash-appointments')],
   ]
   const dayList = mine.filter((a) => a.appointment_date === day).sort((a, b) => a.start_time.localeCompare(b.start_time))
   const earned = mine.filter((a) => a.status === 'Completed').reduce((n, a) => n + svc(a).price, 0)
