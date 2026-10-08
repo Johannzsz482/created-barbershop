@@ -33,6 +33,17 @@ function ServiceBar({ service }) {
   )
 }
 
+// Defined at module level on purpose: a component declared inside Book() is a brand-new type on every render,
+// so React would unmount and remount every panel (and the notes box) on each click or keystroke.
+function Panel({ n, step, title, sub, children }) {
+  return (
+    <motion.section id={`step-${n}`} className={`panel${step < n ? ' locked' : ''}`} animate={{ opacity: step < n ? 0.4 : 1 }}>
+      <header><div><h2>{n}. {title}</h2><p>{sub}</p></div><span>0{n}/04</span></header>
+      {children}
+    </motion.section>
+  )
+}
+
 export default function Book() {
   const { user } = useAuth()
   const { addAppointment } = useData()
@@ -101,13 +112,6 @@ export default function Book() {
     )
   }
 
-  const Panel = ({ n, title, sub, children }) => (
-    <motion.section id={`step-${n}`} className={`panel${step < n ? ' locked' : ''}`} animate={{ opacity: step < n ? 0.4 : 1 }}>
-      <header><div><h2>{n}. {title}</h2><p>{sub}</p></div><span>0{n}/04</span></header>
-      {children}
-    </motion.section>
-  )
-
   return (
     <Page>
       <div className="page-title"><h1>BOOK AN APPOINTMENT</h1></div>
@@ -121,7 +125,7 @@ export default function Book() {
           ))}
         </ol>
 
-        <Panel n={1} title="Select Service" sub="Choose from our signature tailored haircuts and grooming treatments.">
+        <Panel n={1} step={step} title="Select Service" sub="Choose from our signature tailored haircuts and grooming treatments.">
           <div className="svc-grid">
             {bookable.map((s) => (
               <motion.button key={s.service_id} whileHover={{ y: -3 }} whileTap={{ scale: 0.98 }} className={`svc-card${sel.service === s.service_id ? ' on' : ''}`} aria-pressed={sel.service === s.service_id} onClick={() => setSel({ service: s.service_id, barber: null, date: null, time: null })}>
@@ -135,7 +139,7 @@ export default function Book() {
           <ServiceBar service={service} />
         </Panel>
 
-        <Panel n={2} title="Choose Barber" sub="Select your master artisan barber for this session.">
+        <Panel n={2} step={step} title="Choose Barber" sub="Select your master artisan barber for this session.">
           <ServiceBar service={service} />
           <div className="barber-grid">
             {barberChoices.map((b) => (
@@ -150,7 +154,7 @@ export default function Book() {
           </div>
         </Panel>
 
-        <Panel n={3} title="Select Schedule" sub={barber ? `Open days for ${barber.first_name} are highlighted.` : 'Pick a barber first.'}>
+        <Panel n={3} step={step} title="Select Schedule" sub={barber ? `Open days for ${barber.first_name} are highlighted.` : 'Pick a barber first.'}>
           <div className="cal-head">
             <button onClick={() => shift(-1)} disabled={!canPrev} aria-label="Previous month">&lsaquo;</button>
             <strong>{MONTHS[month.m]} {month.y}</strong>
@@ -192,7 +196,7 @@ export default function Book() {
           )}
         </Panel>
 
-        <Panel n={4} title="Review Summary" sub="Check the details, then confirm.">
+        <Panel n={4} step={step} title="Review Summary" sub="Check the details, then confirm.">
           <dl className="review">
             <div><dt>Service</dt><dd>{service ? `${service.service_name} · ${service.duration_minutes} mins` : 'Not selected'}</dd><b>{service ? peso(service.price) : ''}</b></div>
             <div><dt>Barber</dt><dd>{barber ? fullName(barber) : 'Not selected'}</dd></div>
