@@ -12,7 +12,8 @@ function navLinks(user) {
     { to: '/', label: 'Home' },
     { to: '/#services', label: 'Services' },
     { to: '/about', label: 'About' },
-    { to: '/#contact', label: 'Contact' },
+    // The Contact Us section is hidden for Admins, so don't link to it
+    ...(user?.role === 'Admin' ? [] : [{ to: '/#contact', label: 'Contact' }]),
     last,
   ]
 }

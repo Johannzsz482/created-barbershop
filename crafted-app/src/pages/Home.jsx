@@ -21,6 +21,10 @@ const reveal = {
 
 export default function Home() {
   const { user } = useAuth()
+  // Book Now is for customers (and signed-out visitors, who are sent to sign in); Barbers and Admins don't book.
+  const canBook = user?.role !== 'Admin' && user?.role !== 'Barber'
+  // Admins don't use Contact Us; Customers, Barbers and signed-out visitors still do.
+  const showContact = user?.role !== 'Admin'
   const { hash } = useLocation()
   useEffect(() => {
     if (hash) document.querySelector(hash)?.scrollIntoView({ behavior: 'smooth' })
@@ -35,7 +39,7 @@ export default function Home() {
           <motion.h1 {...up(0.1)}>CRAFTED</motion.h1>
           <motion.p className="tag" {...up(0.3)}>Made with precision.</motion.p>
           <motion.div className="cta" {...up(0.5)}>
-            {user?.role !== 'Admin' && <Link className="btn btn-light" to="/book">Book Now</Link>}
+            {canBook && <Link className="btn btn-light" to="/book">Book Now</Link>}
             <Link className="btn btn-outline" to="/craftsmen">Our Craftsmen &rarr;</Link>
           </motion.div>
         </div>
@@ -46,7 +50,7 @@ export default function Home() {
           <motion.div {...reveal}>
             <h2>Define Your Style</h2>
             <p>A personalized consultation focused on understanding your preferences and defining a style that complements your features and individual character.</p>
-            {user?.role !== 'Admin' && <Link className="btn btn-gold" to="/book">Book Now &rarr;</Link>}
+            {canBook && <Link className="btn btn-gold" to="/book">Book Now &rarr;</Link>}
           </motion.div>
           <ol className="steps">
             {['Understand your Preferences', 'Evaluate Your Features', 'Finalize Your Style'].map((s, i) => (
@@ -64,13 +68,15 @@ export default function Home() {
         <HairstyleGallery />
       </section>
 
-      <section className="section contact" id="contact">
-        <motion.div className="contact-card" {...reveal}>
-          <h2>Contact Us</h2>
-          <p className="lead">Have a question or ready to book your next cut? Get in touch with the CRAFTED team.</p>
-          <ContactForm />
-        </motion.div>
-      </section>
+      {showContact && (
+        <section className="section contact" id="contact">
+          <motion.div className="contact-card" {...reveal}>
+            <h2>Contact Us</h2>
+            <p className="lead">Have a question or ready to book your next cut? Get in touch with the CRAFTED team.</p>
+            <ContactForm />
+          </motion.div>
+        </section>
+      )}
     </Page>
   )
 }

@@ -19,7 +19,7 @@ export default function Footer() {
               <li><Link to="/#services">Services</Link></li>
               <li><Link to="/craftsmen">Barbers</Link></li>
               <li><Link to="/#services">Gallery</Link></li>
-              <li><Link to="/#contact">Contact</Link></li>
+              {user?.role !== 'Admin' && <li><Link to="/#contact">Contact</Link></li>}
               {user?.role !== 'Admin' && <li><Link to="/book">Book Now</Link></li>}
             </ul>
           </div>
