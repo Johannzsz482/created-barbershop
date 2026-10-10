@@ -6,8 +6,11 @@ import { fileUrl } from '../api'
 // If no photo loads, the initials show instead.
 const EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp']
 
+// Every address the barber's picture can come from, in the order Avatar tries them (also used to open the current photo in the editor)
+export const barberPhotoSources = (barber) => [fileUrl(barber.photo_url), ...EXTENSIONS.map((e) => `/assets/barbers/barber-${barber.barber_id}.${e}`)].filter(Boolean)
+
 export default function Avatar({ barber, size = 104 }) {
-  const sources = [fileUrl(barber.photo_url), ...EXTENSIONS.map((e) => `/assets/barbers/barber-${barber.barber_id}.${e}`)].filter(Boolean)
+  const sources = barberPhotoSources(barber)
   const k = sources.join('|')
   const [fail, setFail] = useState({ k: '', n: 0 }) // how many sources have failed for this list of sources
   const tried = fail.k === k ? fail.n : 0

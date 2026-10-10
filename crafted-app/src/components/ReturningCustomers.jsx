@@ -1,10 +1,23 @@
+import { useState } from 'react'
 import { motion } from 'framer-motion'
+import { fileUrl } from '../api'
 import { fullName } from '../lib/time'
 import '../styles/returning.css'
 
 // Returning customer = a customer with 2 or more Completed appointments (all time).
 // Built only from the appointments and users the Admin page already has.
-// Customers have no photos in the project, so the existing .avatar circle shows their initials.
+// The existing .avatar circle shows the customer's profile picture when they have one, and their initials otherwise.
+
+function CustomerAvatar({ user, initials }) {
+  const photo = user?.photo_url ? fileUrl(user.photo_url) : ''
+  const [broken, setBroken] = useState('')   // a picture whose file could not be loaded
+  return (
+    <div className="avatar" style={{ width: 44, height: 44 }}>
+      {photo && broken !== photo ? <img src={photo} alt="" onError={() => setBroken(photo)} /> : <span>{initials}</span>}
+    </div>
+  )
+}
+
 export default function ReturningCustomers({ appointments, users }) {
   const done = {}
   appointments.filter((a) => a.status === 'Completed' && a.user_id != null).forEach((a) => { done[a.user_id] = (done[a.user_id] || 0) + 1 })
@@ -27,7 +40,7 @@ export default function ReturningCustomers({ appointments, users }) {
         const initials = r.user ? (r.user.first_name[0] + (r.user.last_name?.[0] || '')).toUpperCase() : '#'
         return (
           <motion.div key={r.id} className="ret-row" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-            <div className="avatar" style={{ width: 44, height: 44 }}><span>{initials}</span></div>
+            <CustomerAvatar user={r.user} initials={initials} />
             <span className="ret-name">{name}</span>
             <b>{r.n} completed</b>
           </motion.div>
