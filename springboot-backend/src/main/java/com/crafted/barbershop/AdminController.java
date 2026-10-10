@@ -1,6 +1,7 @@
 package com.crafted.barbershop;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -8,8 +9,14 @@ import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.sql.Time;
@@ -17,6 +24,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 // Admin-only management routes (SecurityConfig blocks everyone else with 403)
 @RestController
@@ -27,13 +35,17 @@ public class AdminController {
 
     private final JdbcTemplate jdbc;
     private final SlotService slotService;
+    private static final String SERVICE_PHOTO_PREFIX = "/uploads/services/";
+    private static final long MAX_PHOTO_BYTES = 5L * 1024 * 1024;   // keep in step with spring.servlet.multipart in application.properties
+    private final Path serviceDir;   // <upload dir>/services, the same upload folder the profile pictures use
 
-    public AdminController(JdbcTemplate jdbc, SlotService slotService) {
+    public AdminController(JdbcTemplate jdbc, SlotService slotService, @Value("${app.upload.dir:uploads}") String uploadDir) {
         this.jdbc = jdbc;
         this.slotService = slotService;
+        this.serviceDir = Paths.get(uploadDir).toAbsolutePath().normalize().resolve("services");
     }
 
-    public record ServiceBody(String service_name, String description, BigDecimal price, Integer duration_minutes) {}
+    public record ServiceBody(String service_name, String description, BigDecimal price, Integer duration_minutes, String image_url) {}
     public record BarberBody(String first_name, String last_name, String bio, String specialty, String photo_url, Integer user_id) {}
     public record AssignBody(List<Integer> serviceIds) {}
     public record AppointmentBody(Integer userId, Integer barberId, Integer serviceId, String appointmentDate,
@@ -49,24 +61,180 @@ public class AdminController {
         if (s.service_name() == null || s.service_name().isBlank() || s.service_name().length() > 100) return "Enter a service name (up to 100 characters).";
         if (s.price() == null || s.price().signum() <= 0) return "Price must be more than 0.";
         if (s.duration_minutes() == null || s.duration_minutes() <= 0) return "Duration must be more than 0 minutes.";
+        String img = cleanImage(s.image_url());
+        if (img != null && (img.length() > 255 || !(img.startsWith("/assets/") || img.startsWith("/uploads/") || img.startsWith("https://")))) {
+            return "Image must be a /assets/..., /uploads/... or https:// address (up to 255 characters).";
+        }
         return null;
+    }
+
+    // blank means "no image given": a new service gets none, an edited service keeps the one it has
+    private static String cleanImage(String url) {
+        return url == null || url.isBlank() ? null : url.trim();
     }
 
     @PostMapping("/services")
     public ResponseEntity<?> addService(@RequestBody ServiceBody s) {
         String problem = serviceProblem(s);
         if (problem != null) return Api.err(HttpStatus.BAD_REQUEST, problem);
-        jdbc.update("INSERT INTO services (service_name, description, price, duration_minutes) VALUES (?, ?, ?, ?)",
-            s.service_name().trim(), s.description(), s.price(), s.duration_minutes());
+        jdbc.update("INSERT INTO services (service_name, description, price, duration_minutes, image_url) VALUES (?, ?, ?, ?, ?)",
+            s.service_name().trim(), s.description(), s.price(), s.duration_minutes(), cleanImage(s.image_url()));
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("message", "Service added."));
+    }
+
+    // POST /api/admin/services (multipart): the same fields as the JSON route plus an optional "file" photo
+    // (JPG, PNG or WEBP, up to 5 MB). The photo is checked and stored first and its address is saved with the service
+    // in one step, so a service is never saved with a picture that failed to upload.
+    @PostMapping(value = "/services", consumes = "multipart/form-data")
+    public ResponseEntity<?> addServiceWithPhoto(
+            @RequestParam(value = "service_name", required = false) String name,
+            @RequestParam(value = "description", required = false) String description,
+            @RequestParam(value = "price", required = false) String price,
+            @RequestParam(value = "duration_minutes", required = false) String minutes,
+            @RequestParam(value = "file", required = false) MultipartFile file) {
+        BigDecimal priceValue;
+        Integer minutesValue;
+        try {
+            priceValue = price == null || price.isBlank() ? null : new BigDecimal(price.trim());
+            minutesValue = minutes == null || minutes.isBlank() ? null : Integer.valueOf(minutes.trim());
+        } catch (NumberFormatException e) {
+            return Api.err(HttpStatus.BAD_REQUEST, "Price and duration must be numbers.");
+        }
+        String problem = serviceProblem(new ServiceBody(name, description, priceValue, minutesValue, null));
+        if (problem != null) return Api.err(HttpStatus.BAD_REQUEST, problem);
+
+        String url = null;
+        if (file != null) {
+            Object stored = storeServicePhoto(file, "The service was not added.");
+            if (stored instanceof ResponseEntity<?> error) return error;
+            url = (String) stored;
+        }
+
+        try {
+            jdbc.update("INSERT INTO services (service_name, description, price, duration_minutes, image_url) VALUES (?, ?, ?, ?, ?)",
+                name.trim(), description, priceValue, minutesValue, url);
+        } catch (RuntimeException e) {
+            deleteServicePhoto(url);   // don't leave an unused file behind
+            throw e;
+        }
+        Map<String, Object> out = new java.util.LinkedHashMap<>();
+        out.put("message", "Service added.");
+        out.put("image_url", url);
+        return ResponseEntity.status(HttpStatus.CREATED).body(out);
+    }
+
+    // JPG, PNG or WEBP by file signature; null for anything else (SVG, GIF, PDF, renamed files...)
+    private static String imageExtension(MultipartFile file) throws IOException {
+        byte[] h = new byte[12];
+        int n;
+        try (InputStream in = file.getInputStream()) {
+            n = in.readNBytes(h, 0, h.length);
+        }
+        if (n >= 3 && (h[0] & 0xFF) == 0xFF && (h[1] & 0xFF) == 0xD8 && (h[2] & 0xFF) == 0xFF) return "jpg";
+        if (n >= 8 && (h[0] & 0xFF) == 0x89 && h[1] == 'P' && h[2] == 'N' && h[3] == 'G'
+            && h[4] == 0x0D && h[5] == 0x0A && h[6] == 0x1A && h[7] == 0x0A) return "png";
+        if (n >= 12 && h[0] == 'R' && h[1] == 'I' && h[2] == 'F' && h[3] == 'F'
+            && h[8] == 'W' && h[9] == 'E' && h[10] == 'B' && h[11] == 'P') return "webp";
+        return null;
+    }
+
+    // Deletes a service photo this class stored, but only a file sitting directly inside the services folder
+    private void deleteServicePhoto(String url) {
+        if (url == null || !url.startsWith(SERVICE_PHOTO_PREFIX)) return;
+        Path file = serviceDir.resolve(url.substring(SERVICE_PHOTO_PREFIX.length())).normalize();
+        if (!serviceDir.equals(file.getParent())) return;
+        try {
+            Files.deleteIfExists(file);
+        } catch (IOException ignored) {
+            // a leftover file is harmless
+        }
+    }
+
+    // Checks an uploaded service photo (not empty, up to 5 MB, JPG/PNG/WEBP by file signature) and stores it in
+    // <upload dir>/services under a server-chosen name. Returns the photo's /uploads/services/... address, or a
+    // ResponseEntity holding the error to send back. Used by both "add service" and "edit service".
+    private Object storeServicePhoto(MultipartFile file, String notSavedMessage) {
+        if (file.isEmpty()) return Api.err(HttpStatus.BAD_REQUEST, "That image file is empty. Choose another one.");
+        if (file.getSize() > MAX_PHOTO_BYTES) return Api.err(HttpStatus.PAYLOAD_TOO_LARGE, "That image is larger than 5 MB.");
+        // Decide the type from the file's own first bytes, never from the browser's filename or content type
+        String ext;
+        try {
+            ext = imageExtension(file);
+        } catch (IOException e) {
+            return Api.err(HttpStatus.BAD_REQUEST, "That file could not be read.");
+        }
+        if (ext == null) return Api.err(HttpStatus.BAD_REQUEST, "Only JPG, PNG or WEBP images are allowed.");
+        // The server picks the file name, so nothing from the upload ever becomes part of a path
+        String fileName = UUID.randomUUID() + "." + ext;
+        try {
+            Files.createDirectories(serviceDir);
+            try (InputStream in = file.getInputStream()) {
+                Files.copy(in, serviceDir.resolve(fileName));
+            }
+        } catch (IOException e) {
+            return Api.err(HttpStatus.INTERNAL_SERVER_ERROR, "The photo could not be saved. " + notSavedMessage + " Please try again.");
+        }
+        return SERVICE_PHOTO_PREFIX + fileName;
+    }
+
+    // PUT /api/admin/services/{id} (multipart): the same fields as the JSON route plus an optional "file" photo that
+    // replaces the current one. The new photo is checked and stored first; the old stored photo is deleted only after
+    // the service row has been updated, so a failed upload or save leaves the service and its photo exactly as they were.
+    @PutMapping(value = "/services/{id}", consumes = "multipart/form-data")
+    public ResponseEntity<?> editServiceWithPhoto(
+            @PathVariable long id,
+            @RequestParam(value = "service_name", required = false) String name,
+            @RequestParam(value = "description", required = false) String description,
+            @RequestParam(value = "price", required = false) String price,
+            @RequestParam(value = "duration_minutes", required = false) String minutes,
+            @RequestParam(value = "file", required = false) MultipartFile file) {
+        BigDecimal priceValue;
+        Integer minutesValue;
+        try {
+            priceValue = price == null || price.isBlank() ? null : new BigDecimal(price.trim());
+            minutesValue = minutes == null || minutes.isBlank() ? null : Integer.valueOf(minutes.trim());
+        } catch (NumberFormatException e) {
+            return Api.err(HttpStatus.BAD_REQUEST, "Price and duration must be numbers.");
+        }
+        String problem = serviceProblem(new ServiceBody(name, description, priceValue, minutesValue, null));
+        if (problem != null) return Api.err(HttpStatus.BAD_REQUEST, problem);
+
+        List<String> current = jdbc.queryForList("SELECT image_url FROM services WHERE service_id = ?", String.class, id);
+        if (current.isEmpty()) return Api.err(HttpStatus.NOT_FOUND, "Not found.");
+        String previous = current.get(0);
+
+        String url = null;   // null = no new photo: the row keeps the image it has (COALESCE)
+        if (file != null) {
+            Object stored = storeServicePhoto(file, "The service was not changed.");
+            if (stored instanceof ResponseEntity<?> error) return error;
+            url = (String) stored;
+        }
+
+        int rows;
+        try {
+            rows = jdbc.update("UPDATE services SET service_name = ?, description = ?, price = ?, duration_minutes = ?, image_url = COALESCE(?, image_url) WHERE service_id = ?",
+                name.trim(), description, priceValue, minutesValue, url, id);
+        } catch (RuntimeException e) {
+            deleteServicePhoto(url);   // the service is unchanged, so don't keep the new file
+            throw e;
+        }
+        if (rows == 0) {
+            deleteServicePhoto(url);
+            return Api.err(HttpStatus.NOT_FOUND, "Not found.");
+        }
+        if (url != null) deleteServicePhoto(previous);   // only removes files this class stored under /uploads/services/
+        Map<String, Object> out = new java.util.LinkedHashMap<>();
+        out.put("message", "Saved.");
+        out.put("image_url", url != null ? url : previous);
+        return ResponseEntity.ok(out);
     }
 
     @PutMapping("/services/{id}")
     public ResponseEntity<?> editService(@PathVariable long id, @RequestBody ServiceBody s) {
         String problem = serviceProblem(s);
         if (problem != null) return Api.err(HttpStatus.BAD_REQUEST, problem);
-        return done(jdbc.update("UPDATE services SET service_name = ?, description = ?, price = ?, duration_minutes = ? WHERE service_id = ?",
-            s.service_name().trim(), s.description(), s.price(), s.duration_minutes(), id));
+        return done(jdbc.update("UPDATE services SET service_name = ?, description = ?, price = ?, duration_minutes = ?, image_url = COALESCE(?, image_url) WHERE service_id = ?",
+            s.service_name().trim(), s.description(), s.price(), s.duration_minutes(), cleanImage(s.image_url()), id));
     }
 
     @PatchMapping("/services/{id}/toggle")
@@ -264,9 +432,18 @@ public class AdminController {
     // GET /api/admin/contact-messages: messages sent from the Contact Us form, newest first (Admin only via SecurityConfig)
     @GetMapping("/contact-messages")
     public List<Map<String, Object>> contactMessages() {
-        return jdbc.queryForList(
-            "SELECT message_id, name, email, message, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i') AS created_at, is_read " +
-            "FROM contact_messages ORDER BY created_at DESC, message_id DESC");
+        List<Map<String, Object>> rows = jdbc.queryForList(
+            "SELECT c.message_id, c.user_id, c.name, c.email, c.phone, u.username, c.message, " +
+            "DATE_FORMAT(c.created_at, '%Y-%m-%d %H:%i') AS created_at, c.is_read, c.reply, " +
+            "DATE_FORMAT(c.replied_at, '%Y-%m-%d %H:%i') AS replied_at " +
+            "FROM contact_messages c LEFT JOIN users u ON u.users_id = c.user_id " +
+            "ORDER BY c.created_at DESC, c.message_id DESC");
+        // Only well-formed usernames are passed on to the page
+        for (Map<String, Object> r : rows) {
+            Object name = r.get("username");
+            if (name != null && !ContactRules.validUsername(name.toString())) r.put("username", null);
+        }
+        return rows;
     }
 
     // PATCH /api/admin/contact-messages/{id}/read: mark one contact message as read (Admin only via SecurityConfig)
@@ -279,6 +456,34 @@ public class AdminController {
             if (found == null || found == 0) return Api.err(HttpStatus.NOT_FOUND, "Message not found.");
         }
         return ResponseEntity.ok(Map.of("message", "Marked as read."));
+    }
+
+    public record ReplyBody(String reply) {}
+
+    // POST /api/admin/contact-messages/{id}/reply: answer a message from a signed-in customer/barber.
+    // The reply is saved on the message and shows up in that person's account (Profile > My messages).
+    @PostMapping("/contact-messages/{id}/reply")
+    public ResponseEntity<?> replyToContactMessage(@PathVariable long id, @RequestBody ReplyBody body, HttpServletRequest req) {
+        String reply = ContactRules.clean(body == null ? null : body.reply());
+        if (reply.isEmpty()) return Api.err(HttpStatus.BAD_REQUEST, "Write a reply first.");
+        if (reply.length() > ContactRules.MAX_REPLY) return Api.err(HttpStatus.BAD_REQUEST, "A reply can be up to " + ContactRules.MAX_REPLY + " characters.");
+        if (ContactRules.hasUnsafeControlChars(reply)) return Api.err(HttpStatus.BAD_REQUEST, "Your reply contains characters that are not allowed.");
+
+        List<Map<String, Object>> rows = jdbc.queryForList("SELECT user_id FROM contact_messages WHERE message_id = ?", id);
+        if (rows.isEmpty()) return Api.err(HttpStatus.NOT_FOUND, "Message not found.");
+        if (rows.get(0).get("user_id") == null) {
+            return Api.err(HttpStatus.BAD_REQUEST, "This message was sent by a guest, so there is no account to reply to. Use their email or phone number.");
+        }
+        jdbc.update("UPDATE contact_messages SET reply = ?, replied_at = NOW(), replied_by = ?, is_read = TRUE WHERE message_id = ?",
+            reply, Api.uid(req), id);
+        return ResponseEntity.ok(Map.of("message", "Reply sent."));
+    }
+
+    // DELETE /api/admin/contact-messages/{id}: remove a message that is no longer needed
+    @DeleteMapping("/contact-messages/{id}")
+    public ResponseEntity<?> deleteContactMessage(@PathVariable long id) {
+        int rows = jdbc.update("DELETE FROM contact_messages WHERE message_id = ?", id);
+        return rows == 0 ? Api.err(HttpStatus.NOT_FOUND, "Message not found.") : ResponseEntity.ok(Map.of("message", "Message deleted."));
     }
 
     // ---------- schedules ----------

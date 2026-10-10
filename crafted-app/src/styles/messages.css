@@ -10,3 +10,15 @@
 .msg-tbl tr.unread { cursor: pointer; }
 .msg-tbl tr.unread:hover td { background: #272727; }
 .msg-mark { margin-top: 8px; }
+
+/* Replies and row actions */
+.msg-tbl .msg-reply { margin-top: 10px; padding: 8px 12px; border-left: 3px solid var(--gold); background: rgba(255, 255, 255, .04); }
+.msg-tbl .msg-reply-box textarea { width: 100%; margin: 10px 0 8px; padding: 8px 10px; background: #1c1c1c; color: var(--text); border: 1px solid var(--gold); border-radius: 6px; font: inherit; resize: vertical; }
+.msg-tbl .msg-actions { white-space: nowrap; }
+.msg-del { margin-top: 8px; }
+
+/* Profile > My messages */
+.my-msgs { max-height: 60vh; overflow-y: auto; }
+.my-msg { padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; }
+.my-msg-body { margin: 6px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.my-msg-reply { margin-top: 8px; padding: 8px 12px; border-left: 3px solid var(--gold); background: rgba(255, 255, 255, .04); }

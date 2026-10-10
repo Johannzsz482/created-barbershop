@@ -1,17 +1,24 @@
 import { useRef, useState } from 'react'
 import { api } from '../api'
+import { useAuth } from '../context/AuthContext'
+import { validateContact } from '../lib/validate'
 import Modal from './Modal'
-
-const FIELDS = ['firstName', 'lastName', 'email', 'msg']
 
 export default function ContactForm() {
   const formRef = useRef(null)
-  const [values, setValues] = useState({
+  const { user } = useAuth()
+  const [typed, setTyped] = useState({
     firstName: '',
     lastName: '',
     email: '',
+    phone: '',
     msg: '',
   })
+  // Signed in: name, email and phone come from the account (the server uses the account too, so replies reach it)
+  const values = user
+    ? { ...typed, firstName: user.first_name || '', lastName: user.last_name || '', email: user.email || '', phone: user.phone || '' }
+    : typed
+  const locked = !!user
   const [invalid, setInvalid] = useState({})
   const [ok, setOk] = useState({})
   const [status, setStatus] = useState('')
@@ -20,38 +27,29 @@ export default function ContactForm() {
   const handleChange = (e) => {
     const { id, value } = e.target
 
-    setValues((v) => ({
-      ...v,
-      [id]: value,
-    }))
+    const nextValues = { ...values, [id]: value }
+    setTyped((v) => ({ ...v, [id]: value }))
 
     // After a failed submit, keep each field's red state in step with what's typed
-    const good = value.trim() !== '' && e.target.checkValidity()
-    setInvalid((inv) => (inv[id] === undefined ? inv : { ...inv, [id]: !good }))
-    setOk((o) => ({ ...o, [id]: good }))
+    const errs = validateContact(nextValues, locked)
+    if (id === 'email' || id === 'phone') {
+      // email and phone are judged together: one valid contact method is enough
+      setInvalid((inv) => (inv.email === undefined && inv.phone === undefined ? inv : { ...inv, email: !!errs.email, phone: !!errs.phone }))
+      setOk((o) => ({ ...o, email: !errs.email && !!nextValues.email.trim(), phone: !errs.phone && !!nextValues.phone.trim() }))
+    } else {
+      setInvalid((inv) => (inv[id] === undefined ? inv : { ...inv, [id]: !!errs[id] }))
+      setOk((o) => ({ ...o, [id]: !errs[id] }))
+    }
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
 
-    const next = {}
-    let valid = true
+    const errs = validateContact(values, locked)
+    setInvalid({ firstName: !!errs.firstName, lastName: !!errs.lastName, email: !!errs.email, phone: !!errs.phone, msg: !!errs.msg })
 
-    FIELDS.forEach((id) => {
-      const input = formRef.current.elements[id]
-      const ok = input.value.trim() !== '' && input.checkValidity()
-
-      next[id] = !ok
-
-      if (!ok) {
-        valid = false
-      }
-    })
-
-    setInvalid(next)
-
-    if (!valid) {
-      setStatus('Please fill in all fields with valid details.')
+    if (Object.keys(errs).length) {
+      setStatus(errs.contact || 'Please fill in all fields with valid details.')
       return
     }
 
@@ -60,6 +58,7 @@ export default function ContactForm() {
     const r = await api('/contact', 'POST', {
       name: `${values.firstName.trim()} ${values.lastName.trim()}`,
       email: values.email.trim(),
+      phone: values.phone.trim(),
       message: values.msg.trim(),
     })
 
@@ -74,10 +73,11 @@ export default function ContactForm() {
     setSent(true)
     setOk({})
 
-    setValues({
+    setTyped({
       firstName: '',
       lastName: '',
       email: '',
+      phone: '',
       msg: '',
     })
   }
@@ -100,6 +100,7 @@ export default function ContactForm() {
           autoComplete="given-name"
           value={values.firstName}
           onChange={handleChange}
+          readOnly={locked}
         />
       </div>
 
@@ -113,6 +114,7 @@ export default function ContactForm() {
           autoComplete="family-name"
           value={values.lastName}
           onChange={handleChange}
+          readOnly={locked}
         />
       </div>
 
@@ -123,8 +125,24 @@ export default function ContactForm() {
           id="email"
           type="email"
           placeholder="juandelacruz@gmail.com"
+          autoComplete="email"
           value={values.email}
           onChange={handleChange}
+          readOnly={locked}
+        />
+      </div>
+
+      <div className={`field${invalid.phone ? ' invalid' : ok.phone ? ' valid' : ''}`}>
+        <label htmlFor="phone">Phone{locked ? '' : ' (email or phone is required)'}</label>
+
+        <input
+          id="phone"
+          type="tel"
+          placeholder="0917 123 4567"
+          autoComplete="tel"
+          value={values.phone}
+          onChange={handleChange}
+          readOnly={locked}
         />
       </div>
 

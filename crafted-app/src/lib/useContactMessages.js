@@ -3,6 +3,8 @@ import { api } from '../api'
 
 // Admin contact messages: GET /api/admin/contact-messages (uses the signed-in token via api()).
 // Returns { messages, loading, error, markRead }; messages are { message_id, name, email, message, created_at, is_read }.
+// Rows also carry user_id, phone, username (set for messages from signed-in people) and reply / replied_at.
+// reply(id, text) calls POST /api/admin/contact-messages/{id}/reply; remove(id) calls DELETE /api/admin/contact-messages/{id}.
 // markRead(id) flips the message to Read straight away, then calls PATCH /api/admin/contact-messages/{id}/read (and undoes it if that fails).
 export function useContactMessages() {
   const [result, setResult] = useState({ done: false, messages: [], error: '' })
@@ -33,5 +35,25 @@ export function useContactMessages() {
     }
   }
 
-  return { messages: result.messages, loading: !result.done, error: result.error, markRead }
+  // Returns '' on success or an error message (shown by the caller next to the reply box)
+  const reply = async (id, text) => {
+    const r = await api(`/admin/contact-messages/${id}/reply`, 'POST', { reply: text })
+    if (!r.ok) return r.error || 'Could not send the reply.'
+    const now = new Date()
+    const p = (n) => String(n).padStart(2, '0')
+    const stamp = `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())} ${p(now.getHours())}:${p(now.getMinutes())}`
+    setResult((x) => ({ ...x, messages: x.messages.map((m) => (m.message_id === id ? { ...m, reply: text.trim(), replied_at: stamp, is_read: true } : m)) }))
+    return ''
+  }
+
+  const remove = async (id) => {
+    const r = await api(`/admin/contact-messages/${id}`, 'DELETE')
+    if (!r.ok && r.status !== 404) {
+      window.alert(r.error || 'Could not delete the message.')
+      return
+    }
+    setResult((x) => ({ ...x, messages: x.messages.filter((m) => m.message_id !== id) }))
+  }
+
+  return { messages: result.messages, loading: !result.done, error: result.error, markRead, reply, remove }
 }

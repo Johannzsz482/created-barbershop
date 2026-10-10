@@ -27,3 +27,24 @@ export function validateSignUp(f) {
   if (f.confirm !== f.password) errors.confirm = 'Passwords do not match.'
   return errors
 }
+
+// Contact Us form. Signed-in people use their account details (checked again by the server), so only the message is judged.
+// Guests need a name and at least one valid contact method: an email or a phone number.
+const NAME = /^[\p{L}\p{M}][\p{L}\p{M} .'’-]*$/u
+export const contactPhoneOk = (v) => PHONE.test(v.trim()) && (v.match(/\d/g) || []).length >= 7
+export function validateContact(f, signedIn = false) {
+  const errors = {}
+  if (!f.msg.trim()) errors.msg = 'Enter a message.'
+  else if (f.msg.trim().length > 5000) errors.msg = 'Your message can be up to 5000 characters.'
+  if (signedIn) return errors
+  for (const k of ['firstName', 'lastName']) {
+    const v = f[k].trim()
+    if (!v || v.length > 50 || !NAME.test(v)) errors[k] = 'Use letters only.'
+  }
+  const email = f.email.trim(), phone = f.phone.trim()
+  if (!email && !phone) errors.contact = 'Enter an email address or a phone number so we can get back to you.'
+  if (!email && !phone) { errors.email = errors.contact; errors.phone = errors.contact }
+  if (email && !(EMAIL.test(cleanEmail(email)) && cleanEmail(email).length <= 100)) errors.email = 'Enter a valid email address.'
+  if (phone && !contactPhoneOk(phone)) errors.phone = 'Enter a valid phone number.'
+  return errors
+}
