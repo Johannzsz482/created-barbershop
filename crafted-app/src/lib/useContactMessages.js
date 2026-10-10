@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api } from '../api'
+import { api, setUnreadMessages } from '../api'
 
 // Admin contact messages: GET /api/admin/contact-messages (uses the signed-in token via api()).
 // Returns { messages, loading, error, markRead }; messages are { message_id, name, email, message, created_at, is_read }.
@@ -21,6 +21,11 @@ export function useContactMessages() {
     })
     return () => { stale = true }
   }, [])
+
+  // Keep the Admin header / tab badge in step with this list (loading, marking read, replying, deleting)
+  useEffect(() => {
+    if (result.done && !result.error) setUnreadMessages(result.messages.filter((m) => !m.is_read).length)
+  }, [result])
 
   const setRead = (id, is_read) => setResult((r) => ({ ...r, messages: r.messages.map((m) => (m.message_id === id ? { ...m, is_read } : m)) }))
 

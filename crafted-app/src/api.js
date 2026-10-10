@@ -36,6 +36,7 @@ function normalize(d) {
 let state = {
   ready: false, offline: false,
   users: [], barbers: [], services: [], schedules: [], barberServices: [], appointments: [], logs: [],
+  unreadMessages: 0,   // Admin only: unread Contact Us messages (the header and tab badges read this)
 }
 const listeners = new Set()
 const emit = () => listeners.forEach((l) => l())
@@ -48,7 +49,7 @@ export function useStore() {
 // Reload everything from the server (what you are allowed to see depends on who is signed in)
 export async function refresh() {
   const r = await api('/bootstrap')
-  if (r.ok) state = { ...normalize(r.data), ready: true, offline: false }
+  if (r.ok) state = { ...normalize(r.data), unreadMessages: state.unreadMessages, ready: true, offline: false }
   else state = { ...state, ready: true, offline: state.barbers.length === 0 }
   emit()
   return r.ok
@@ -61,6 +62,16 @@ export async function refreshMine() {
   const mine = r.data.map((a) => ({ ...a, status: title(a.status) }))
   const ids = new Set(mine.map((a) => a.appointment_id))
   patch((s) => ({ ...s, appointments: [...s.appointments.filter((a) => !ids.has(a.appointment_id)), ...mine] }))
+  return true
+}
+
+// Admin: keep the unread-message count in the shared store. The Messages tab calls setUnreadMessages whenever its
+// list changes; refreshUnreadMessages reads the same GET /api/admin/contact-messages the tab uses.
+export const setUnreadMessages = (n) => patch((s) => (s.unreadMessages === n ? s : { ...s, unreadMessages: n }))
+export async function refreshUnreadMessages() {
+  const r = await api('/admin/contact-messages')
+  if (!r.ok || !Array.isArray(r.data)) return false
+  setUnreadMessages(r.data.filter((m) => !m.is_read).length)
   return true
 }
 

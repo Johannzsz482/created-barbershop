@@ -196,3 +196,7 @@ a.shot:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
 .users-tbl th, .users-tbl td { padding-inline: 8px; }
 .users-tbl th:last-child, .users-tbl td.acts { position: sticky; right: 0; z-index: 1; }
 .users-tbl td.acts { display: table-cell; }   /* the shared .acts flex layout made this cell shorter than its row; one button needs no flex */
+
+/* Small gold notification badge (Admin / Barber header link, Admin tabs, Pending buttons) */
+.notif-badge { display: inline-block; min-width: 18px; height: 18px; margin-left: 6px; padding: 0 5px; border-radius: 9px; background: var(--gold); color: #1c1c1c; font: 700 11px/18px var(--sans); letter-spacing: 0; text-align: center; vertical-align: middle; }
+.nav-links a .nav-badge { position: absolute; top: -4px; right: -18px; margin: 0; }

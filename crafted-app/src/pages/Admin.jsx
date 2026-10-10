@@ -11,6 +11,7 @@ import { useStore } from '../api'
 import { DAYS, fmt12, peso, longDate, fullName, toMin, toHHMM, iso } from '../lib/time'
 import { clickable } from '../lib/clickable'
 import { bookedPrice } from '../lib/revenue'
+import { badgeText, pendingCount } from '../lib/pending'
 import RevenuePanel from '../components/RevenuePanel'
 import TopBarbers from '../components/TopBarbers'
 import ContactMessages from '../components/ContactMessages'
@@ -123,9 +124,11 @@ function ApptForm({ d, init, onClose }) {
 function Appts({ d }) {
   const [f, setF] = useState('All'); const [q, setQ] = useState(''); const [form, setForm] = useState(null)
   const rows = [...d.appointments].reverse().filter((a) => (f === 'All' || a.status === f) && `${d.uName(a.user_id)} ${d.bar(a.barber_id)?.first_name} ${d.svc(a.service_id)?.service_name}`.toLowerCase().includes(q.toLowerCase()))
+  const pending = pendingCount(d.appointments)
   const remove = (a) => window.confirm(`Delete appointment #${a.appointment_id} for ${d.uName(a.user_id)}? This also removes its history and cannot be undone. (Use the status menu to cancel instead.)`) && d.adminDelete(a.appointment_id)
   return <div className="panel"><div className="toolbar"><Search value={q} onChange={(e) => setQ(e.target.value)} />
     <select value={f} onChange={(e) => setF(e.target.value)}>{['All', ...STATUSES, 'Declined'].map((s) => <option key={s}>{s}</option>)}</select>
+    {(pending > 0 || f === 'Pending') && <button type="button" className="mini ghost" onClick={() => setF(f === 'Pending' ? 'All' : 'Pending')}>{f === 'Pending' ? 'Show all' : 'Show pending'}{pending > 0 && <span className="notif-badge">{badgeText(pending)}</span>}</button>}
     <button className="btn btn-gold sm" onClick={() => setForm({ user_id: '', barber_id: '', service_id: '', appointment_date: '', notes: '' })}>+ New appointment</button></div>
     <div className="table-wrap"><table className="tbl left"><thead><tr><th>#</th><th>Customer</th><th>Barber</th><th>Service</th><th>When</th><th>Price</th><th>Status</th><th></th></tr></thead><tbody>
       {rows.map((a) => <tr key={a.appointment_id}><td>{a.appointment_id}</td><td>{d.uName(a.user_id)}</td><td>{d.bar(a.barber_id) && fullName(d.bar(a.barber_id))}</td><td>{d.svc(a.service_id)?.service_name}</td>
@@ -307,13 +310,15 @@ function Messages() {
 export default function Admin() {
   const { user, users } = useAuth(); const { appointments, logs, setStatus, adminSave, adminDelete } = useData(); const cat = useCatalog()
   const [tab, setTab] = useState('Overview')
+  const { unreadMessages } = useStore()
+  const tabBadge = { Appointments: pendingCount(appointments), Messages: unreadMessages }   // pending bookings / unread contact messages
   const d = { user, users, appointments, logs, setStatus, adminSave, adminDelete, cat,
     uName: (id) => { const u = users.find((x) => x.users_id === id); return u ? `${u.first_name} ${u.last_name}` : '—' },
     svc: (id) => cat.services.find((s) => s.service_id === id), bar: (id) => cat.barbers.find((b) => b.barber_id === id) }
   const View = { Overview, Appointments: Appts, Users, Barbers, Services, Schedules, Messages, Activity }[tab]
   return <Page><div className="page-title"><h1>ADMIN</h1><p className="sub">Everything in the shop, in one place.</p></div>
     <section className="page-body wide">
-      <nav className="tabs" aria-label="Admin sections">{TABS.map((t) => <button key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t}{tab === t && <motion.i layoutId="tab-line" />}</button>)}</nav>
+      <nav className="tabs" aria-label="Admin sections">{TABS.map((t) => <button key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t}{tabBadge[t] > 0 && <span className="notif-badge" aria-label={`${tabBadge[t]} ${t === 'Messages' ? 'unread' : 'pending'}`}>{badgeText(tabBadge[t])}</span>}{tab === t && <motion.i layoutId="tab-line" />}</button>)}</nav>
       <motion.div key={tab} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}><View d={d} go={setTab} /></motion.div>
     </section></Page>
 }

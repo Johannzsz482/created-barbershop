@@ -9,6 +9,7 @@ import { useData } from '../context/DataContext'
 import { useCatalog } from '../context/CatalogContext'
 import { fmt12, iso, peso, longDate, fullName } from '../lib/time'
 import { clickable, scrollToId } from '../lib/clickable'
+import { badgeText, pendingCount } from '../lib/pending'
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 // What a barber can do next, by current status
@@ -73,6 +74,15 @@ export default function Dashboard() {
   const cust = (a) => { const u = users.find((x) => x.users_id === a.user_id); return u ? `${u.first_name} ${u.last_name}` : 'Unknown' }
   const svc = (a) => services.find((s) => s.service_id === a.service_id)
   const live = mine.filter((a) => a.status !== 'Cancelled' && a.status !== 'Declined')
+  // Pending bookings on any date (the day list below only shows the selected day), and a way to jump to the next one
+  const pending = pendingCount(mine, me.barber_id)
+  const pendingDates = mine.filter((a) => a.status === 'Pending').map((a) => a.appointment_date).sort()
+  const nextPending = pendingDates.find((x) => x >= today) || pendingDates[0]
+  const showPending = () => {
+    if (!nextPending) return
+    const [y, m] = nextPending.split('-')
+    setDay(nextPending); setMonth({ y: +y, m: +m - 1 }); scrollToId('dash-appointments')
+  }
   const stats = [
     ["Today's Appointments", live.filter((a) => a.appointment_date === today).length, 'var(--text)', () => { setDay(today); scrollToId('dash-appointments') }],
     ['Upcoming', live.filter((a) => a.appointment_date > today && a.status !== 'Completed').length, 'var(--gold)', () => scrollToId('dash-calendar')],
@@ -104,7 +114,9 @@ export default function Dashboard() {
         {load === 'error' && <p className="muted center" style={{ marginTop: -12, marginBottom: 24 }}>Could not refresh from the server. Showing the last loaded data.</p>}
 
         <div className="panel" id="dash-appointments">
-          <header><div><h2>{day === today ? "Today's Appointments" : 'Appointments'}</h2><p>{longDate(day)}</p></div><span>{dayList.filter((a) => a.status !== 'Cancelled' && a.status !== 'Declined').length} booked</span></header>
+          <header><div><h2>{day === today ? "Today's Appointments" : 'Appointments'}</h2><p>{longDate(day)}</p></div><span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {pending > 0 && <button type="button" className="mini" onClick={showPending} title="Go to your next pending appointment">Pending<span className="notif-badge">{badgeText(pending)}</span></button>}
+            {dayList.filter((a) => a.status !== 'Cancelled' && a.status !== 'Declined').length} booked</span></header>
           {dayList.length === 0 ? <p className="muted" style={{ textAlign: 'center', padding: '24px 0' }}>{load === 'loading' ? 'Loading your appointments…' : 'Nothing booked for this day.'}</p> : (
             <div className="table-wrap"><table className="tbl">
               <thead><tr><th>Time</th><th>Customer</th><th>Service</th><th>Status</th><th>Action</th></tr></thead>
