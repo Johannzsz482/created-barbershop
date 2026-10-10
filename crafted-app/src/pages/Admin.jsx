@@ -144,7 +144,7 @@ function Users({ d }) {
   const rows = allUsers.filter((u) => `${u.first_name} ${u.last_name} ${u.username} ${u.email}`.toLowerCase().includes(q.toLowerCase()))
   return <div className="panel"><div className="toolbar"><Search value={q} onChange={(e) => setQ(e.target.value)} /><span className="muted">{rows.length} users</span></div>
     <div className="table-wrap"><table className="tbl left"><thead><tr><th>ID</th><th>Name</th><th>Username</th><th>Email</th><th>Phone</th><th>Role</th><th>Status</th><th>Joined</th><th>Bookings</th><th></th></tr></thead><tbody>
-      {rows.map((u) => <tr key={u.users_id}><td>{u.users_id}</td><td>{u.first_name} {u.last_name}</td><td>@{u.username}</td><td>{u.email}</td><td>{u.phone || '—'}</td><td><span className={`badge r-${u.role.toLowerCase()}`}>{u.role}</span></td>
+      {rows.map((u) => <tr key={u.users_id}><td>{u.users_id}</td><td>{u.first_name} {u.last_name}</td><td>{u.username}</td><td>{u.email}</td><td>{u.phone || '—'}</td><td><span className={`badge r-${u.role.toLowerCase()}`}>{u.role}</span></td>
         <td><span className={`badge ${u.is_active ? 's-completed' : 's-cancelled'}`}>{u.is_active ? 'Active' : 'Inactive'}</span></td><td>{longDate(u.created_at)}</td><td>{d.appointments.filter((a) => a.user_id === u.users_id).length}</td>
         <td className="acts"><button className="mini ghost" disabled={u.users_id === d.user.users_id} title={u.users_id === d.user.users_id ? "You can't deactivate your own account" : ''}
           onClick={() => (u.is_active ? window.confirm(`Deactivate ${u.first_name} ${u.last_name}? They will no longer be able to sign in.`) : true) && d.cat.toggleUser(u.users_id)}>{u.is_active ? 'Deactivate' : 'Activate'}</button></td></tr>)}
@@ -300,8 +300,8 @@ function Activity({ d }) {
 
 // Contact messages from GET /api/admin/contact-messages (loaded each time the tab opens)
 function Messages() {
-  const { messages, loading, error, markRead } = useContactMessages()
-  return <ContactMessages messages={messages} loading={loading} error={error} onMarkRead={markRead} />
+  const { messages, loading, error, markRead, reply, remove } = useContactMessages()
+  return <ContactMessages messages={messages} loading={loading} error={error} onMarkRead={markRead} onReply={reply} onDelete={remove} />
 }
 
 export default function Admin() {
