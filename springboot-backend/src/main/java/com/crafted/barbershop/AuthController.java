@@ -21,7 +21,6 @@ import java.util.regex.Pattern;
 public class AuthController {
 
     private static final Pattern EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[A-Za-z]{2,}$");
-    private static final Pattern USERNAME = Pattern.compile("^[A-Za-z0-9_.]{3,30}$");
     private static final Pattern PHONE = Pattern.compile("^[0-9+\\- ]{7,20}$");
     // at least 6 characters, with at least one letter and one number
     static final Pattern PASSWORD = Pattern.compile("^(?=.*[A-Za-z])(?=.*\\d).{6,}$");
@@ -81,7 +80,10 @@ public class AuthController {
 
         if (first.isEmpty() || first.length() > 50) return fail(HttpStatus.BAD_REQUEST, "firstName", "Enter your first name (up to 50 characters).");
         if (last.isEmpty() || last.length() > 50) return fail(HttpStatus.BAD_REQUEST, "lastName", "Enter your last name (up to 50 characters).");
-        if (!USERNAME.matcher(username).matches()) return fail(HttpStatus.BAD_REQUEST, "username", "Username must be 3 to 30 characters: letters, numbers, dot or underscore.");
+        if (!AccountRules.validPersonName(first)) return fail(HttpStatus.BAD_REQUEST, "firstName", "First name can only contain letters and spaces.");
+        if (!AccountRules.validPersonName(last)) return fail(HttpStatus.BAD_REQUEST, "lastName", "Last name can only contain letters and spaces.");
+        String usernameProblem = AccountRules.usernameProblem(username);
+        if (usernameProblem != null) return fail(HttpStatus.BAD_REQUEST, "username", usernameProblem);
         if (!EMAIL.matcher(email).matches() || email.length() > 100) return fail(HttpStatus.BAD_REQUEST, "email", "Enter a valid email address.");
         if (!phone.isEmpty() && !PHONE.matcher(phone).matches()) return fail(HttpStatus.BAD_REQUEST, "phone", "Enter a valid phone number.");
         if (!PASSWORD.matcher(password).matches()) return fail(HttpStatus.BAD_REQUEST, "password", "Password must be at least 6 characters with a letter and a number.");

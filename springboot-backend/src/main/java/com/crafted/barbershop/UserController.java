@@ -30,7 +30,6 @@ public class UserController {
 
     // Same rules as registration (AuthController), kept here so profile editing is self-contained
     private static final Pattern EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[A-Za-z]{2,}$");
-    private static final Pattern USERNAME = Pattern.compile("^[A-Za-z0-9_.]{3,30}$");
     private static final Pattern PHONE = Pattern.compile("^[0-9+\\- ]{7,20}$");
 
     // Profile pictures are saved as files in <upload dir>/avatars and served at /uploads/avatars/<name> (see AppConfig)
@@ -94,7 +93,8 @@ public class UserController {
 
         if (first.isEmpty() || first.length() > 50) return fieldError(HttpStatus.BAD_REQUEST, "firstName", "Enter your first name (up to 50 characters).");
         if (last.isEmpty() || last.length() > 50) return fieldError(HttpStatus.BAD_REQUEST, "lastName", "Enter your last name (up to 50 characters).");
-        if (!USERNAME.matcher(username).matches()) return fieldError(HttpStatus.BAD_REQUEST, "username", "Username must be 3 to 30 characters: letters, numbers, dot or underscore.");
+        String usernameProblem = AccountRules.usernameProblem(username);
+        if (usernameProblem != null) return fieldError(HttpStatus.BAD_REQUEST, "username", usernameProblem);
         if (!EMAIL.matcher(email).matches() || email.length() > 100) return fieldError(HttpStatus.BAD_REQUEST, "email", "Enter a valid email address.");
         if (!phone.isEmpty() && !PHONE.matcher(phone).matches()) return fieldError(HttpStatus.BAD_REQUEST, "phone", "Enter a valid phone number.");
 
