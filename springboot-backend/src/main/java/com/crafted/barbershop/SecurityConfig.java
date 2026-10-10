@@ -116,6 +116,13 @@ public class SecurityConfig {
 
         source.registerCorsConfiguration("/api/**", cors);
 
+        // Uploaded photos (/uploads/**) are plain downloads. <img> tags need no CORS, but the photo editor fetch()es a
+        // saved photo so it can be adjusted again, and from the deployed site that is a cross-origin request.
+        CorsConfiguration uploads = new CorsConfiguration();
+        uploads.setAllowedOriginPatterns(cors.getAllowedOriginPatterns());
+        uploads.setAllowedMethods(List.of("GET", "HEAD", "OPTIONS"));
+        source.registerCorsConfiguration("/uploads/**", uploads);
+
         return source;
     }
 }
