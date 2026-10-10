@@ -142,8 +142,8 @@ function Users({ d }) {
   const [q, setQ] = useState('')
   const { users: allUsers } = useStore()   // includes inactive accounts so they can be re-activated
   const rows = allUsers.filter((u) => `${u.first_name} ${u.last_name} ${u.username} ${u.email}`.toLowerCase().includes(q.toLowerCase()))
-  return <div className="panel"><div className="toolbar"><Search value={q} onChange={(e) => setQ(e.target.value)} /><span className="muted">{rows.length} users</span></div>
-    <div className="table-wrap"><table className="tbl left"><thead><tr><th>ID</th><th>Name</th><th>Username</th><th>Email</th><th>Phone</th><th>Role</th><th>Status</th><th>Joined</th><th>Bookings</th><th></th></tr></thead><tbody>
+  return <div className="panel users-panel"><div className="toolbar"><Search value={q} onChange={(e) => setQ(e.target.value)} /><span className="muted">{rows.length} users</span></div>
+    <div className="table-wrap"><table className="tbl left users-tbl"><thead><tr><th>ID</th><th>Name</th><th>Username</th><th>Email</th><th>Phone</th><th>Role</th><th>Status</th><th>Joined</th><th>Bookings</th><th></th></tr></thead><tbody>
       {rows.map((u) => <tr key={u.users_id}><td>{u.users_id}</td><td>{u.first_name} {u.last_name}</td><td>{u.username}</td><td>{u.email}</td><td>{u.phone || '—'}</td><td><span className={`badge r-${u.role.toLowerCase()}`}>{u.role}</span></td>
         <td><span className={`badge ${u.is_active ? 's-completed' : 's-cancelled'}`}>{u.is_active ? 'Active' : 'Inactive'}</span></td><td>{longDate(u.created_at)}</td><td>{d.appointments.filter((a) => a.user_id === u.users_id).length}</td>
         <td className="acts"><button className="mini ghost" disabled={u.users_id === d.user.users_id} title={u.users_id === d.user.users_id ? "You can't deactivate your own account" : ''}

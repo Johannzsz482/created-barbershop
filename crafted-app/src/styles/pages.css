@@ -187,3 +187,12 @@ a.shot .shot-title { transition: background .3s, color .3s; }
 a.shot:hover, a.shot:focus-visible { opacity: 1; transform: scale(1.05); box-shadow: 0 18px 40px rgba(0, 0, 0, .55), 0 0 0 1px var(--gold); }
 a.shot:hover .shot-title, a.shot:focus-visible .shot-title { color: var(--gold); background: rgba(0, 0, 0, .5); }
 a.shot:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
+
+/* Admin > Users: ten columns need about 1100px, more than the admin column gives its panels, so the Deactivate button
+   (last column) ended up past the right edge of the scrolling table. Only the Users panel is touched here:
+   it grows a little on wide screens, the cells are a bit tighter, and the Actions column stays pinned at the right
+   edge so the button is always reachable when the table still has to scroll (narrow screens). */
+.panel.users-panel { margin-inline: clamp(-40px, calc((100vw - 1168px) / -2), 0px); }
+.users-tbl th, .users-tbl td { padding-inline: 8px; }
+.users-tbl th:last-child, .users-tbl td.acts { position: sticky; right: 0; z-index: 1; }
+.users-tbl td.acts { display: table-cell; }   /* the shared .acts flex layout made this cell shorter than its row; one button needs no flex */
