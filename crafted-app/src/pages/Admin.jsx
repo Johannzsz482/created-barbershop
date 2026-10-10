@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
 import { useCatalog } from '../context/CatalogContext'
 import { useSlots } from '../lib/useSlots'
-import { useStore } from '../api'
+import { api, refresh, useStore } from '../api'
 import { DAYS, fmt12, peso, longDate, fullName, toMin, toHHMM, iso } from '../lib/time'
 import { clickable } from '../lib/clickable'
 import { bookedPrice } from '../lib/revenue'
@@ -155,10 +155,22 @@ function Users({ d }) {
 }
 
 function Barbers({ d }) {
-  const { barbers, services, barberServices, saveBarber, toggleBarber, setBarberServices } = d.cat
+  const { barbers, services, barberServices, saveBarber, toggleBarber } = d.cat
   const [edit, setEdit] = useState(null); const [pick, setPick] = useState(null); const [ids, setIds] = useState([])
+  const [svcErr, setSvcErr] = useState(''); const [svcSaving, setSvcSaving] = useState(false)
   const f = bind(edit || {}, setEdit)
-  const openServices = (b) => { setPick(b); setIds(barberServices.filter((x) => x.barber_id === b.barber_id).map((x) => x.service_id)) }
+  const openServices = (b) => { setPick(b); setSvcErr(''); setIds(barberServices.filter((x) => x.barber_id === b.barber_id).map((x) => x.service_id)) }
+  const closeServices = () => { if (!svcSaving) setPick(null) }   // stays open while the save is running
+  // Stay open until the server confirms. On failure (for example 409: appointments still use a service that was unticked) the ticks are kept so they can be corrected and saved again.
+  const saveServices = async () => {
+    if (svcSaving) return
+    setSvcSaving(true); setSvcErr('')
+    const r = await api(`/admin/barbers/${pick.barber_id}/services`, 'PUT', { serviceIds: ids })
+    if (r.ok) await refresh()
+    setSvcSaving(false)
+    if (!r.ok) return setSvcErr(r.error || 'The services were not saved. Please try again.')
+    setPick(null)
+  }
   return <div className="panel"><div className="toolbar"><span className="muted">{barbers.length} barbers</span><button className="btn btn-gold sm" onClick={() => setEdit({ first_name: '', last_name: '', specialty: '', bio: '' })}>+ Add barber</button></div>
     <div className="table-wrap"><table className="tbl left"><thead><tr><th>Barber</th><th>Specialty</th><th>Login account</th><th>Services</th><th>Active</th><th></th></tr></thead><tbody>
       {barbers.map((b) => { const n = barberServices.filter((x) => x.barber_id === b.barber_id).length
@@ -175,9 +187,10 @@ function Barbers({ d }) {
         <div className="full"><BarberPhotoPicker value={edit.photo_url} onChange={(v) => setEdit({ ...edit, photo_url: v })} /></div>
         <button className="btn btn-gold full" type="submit">Save</button></form>}
     </Modal>
-    <Modal open={!!pick} onClose={() => setPick(null)} title={pick ? `Services · ${pick.first_name}` : ''}>
-      <div className="check-list">{services.map((s) => <label key={s.service_id}><input type="checkbox" checked={ids.includes(s.service_id)} onChange={() => setIds((v) => (v.includes(s.service_id) ? v.filter((x) => x !== s.service_id) : [...v, s.service_id]))} />{s.service_name}<small>{peso(s.price)}</small></label>)}</div>
-      <button className="btn btn-gold wide" onClick={() => { setBarberServices(pick.barber_id, ids); setPick(null) }}>Save services</button>
+    <Modal open={!!pick} onClose={closeServices} title={pick ? `Services · ${pick.first_name}` : ''}>
+      <div className="check-list">{services.map((s) => <label key={s.service_id}><input type="checkbox" checked={ids.includes(s.service_id)} disabled={svcSaving} onChange={() => { setSvcErr(''); setIds((v) => (v.includes(s.service_id) ? v.filter((x) => x !== s.service_id) : [...v, s.service_id])) }} />{s.service_name}<small>{peso(s.price)}</small></label>)}</div>
+      {svcErr && <p role="alert" style={{ margin: '0 0 12px', color: '#e5736b' }}>{svcErr}</p>}
+      <button className="btn btn-gold wide" disabled={svcSaving} onClick={saveServices}>{svcSaving ? 'Saving…' : 'Save services'}</button>
     </Modal></div>
 }
 
@@ -229,7 +242,8 @@ function Services({ d }) {
         return <tr key={s.service_id}><td>{s.service_name}</td><td>{peso(s.price)}</td><td>{s.duration_minutes}</td><td className={n ? '' : 'warn'}>{n || 'No barber'}</td>
           <td><Switch on={s.is_active} onClick={() => toggleService(s.service_id)} label="Toggle active" /></td>
           <td className="acts"><button className="mini ghost" onClick={() => setEdit({ ...s })}>Edit</button>
-            <button className="mini ghost" disabled={used(s.service_id)} title={used(s.service_id) ? 'Has bookings — deactivate instead' : 'Delete'} onClick={() => window.confirm(`Delete ${s.service_name}?`) && deleteService(s.service_id)}>Delete</button></td></tr> })}
+            <button className="mini ghost" disabled={used(s.service_id)} title={used(s.service_id) ? 'Has bookings — deactivate instead' : 'Delete'} onClick={() => window.confirm(`Delete ${s.service_name}?`) && deleteService(s.service_id)}>Delete</button>
+            {used(s.service_id) && <small style={{ alignSelf: 'center' }}>Booked</small>}</td></tr> })}
     </tbody></table></div>
     <Modal open={!!edit} onClose={closeForm} title={edit?.service_id ? 'Edit service' : 'Add service'}>
       {edit && <form className="form-grid" onSubmit={save}><label className="full">Name<input {...f('service_name')} /></label><label className="full">Description<textarea {...f('description')} /></label>
