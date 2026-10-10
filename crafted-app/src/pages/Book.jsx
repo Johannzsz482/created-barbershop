@@ -19,7 +19,7 @@ function ServiceBar({ service }) {
   if (!service) return null
   return (
     <div className="sel-bar">
-      <ServiceImage name={service.service_name} />
+      <ServiceImage name={service.service_name} imageUrl={service.image_url} />
       <div className="sel-name"><small>Selected service</small><h4>{service.service_name}</h4></div>
       <div className="sel-meta"><b>{peso(service.price)}</b><span>{service.duration_minutes} mins</span></div>
     </div>
@@ -122,7 +122,7 @@ export default function Book() {
           <div className="svc-grid">
             {bookable.map((s) => (
               <motion.button key={s.service_id} whileHover={{ y: -3 }} whileTap={{ scale: 0.98 }} className={`svc-card${sel.service === s.service_id ? ' on' : ''}`} aria-pressed={sel.service === s.service_id} onClick={() => setSel({ service: s.service_id, barber: null, date: null, time: null })}>
-                <div className="svc-img"><ServiceImage name={s.service_name} loading="lazy" /></div>
+                <div className="svc-img"><ServiceImage name={s.service_name} imageUrl={s.image_url} loading="lazy" /></div>
                 <div className="top"><h3>{s.service_name}</h3><b>{peso(s.price)}</b></div>
                 <p>{s.description}</p>
                 <small>{s.duration_minutes} mins</small>

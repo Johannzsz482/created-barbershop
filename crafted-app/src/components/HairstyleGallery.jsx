@@ -18,7 +18,14 @@ export default function HairstyleGallery() {
   // Only active services that have sample hairstyles
   const groups = useMemo(() => (services || [])
     .filter((s) => s.is_active)
-    .map((s) => ({ service: s, styles: hairstyles.filter((h) => key(h.service) === key(s.service_name)) }))
+    .map((s) => {
+      const own = hairstyles.filter((h) => key(h.service) === key(s.service_name))
+      // A service added by an admin has no sample hairstyles of its own: its photo is shown as a single card.
+      // A built-in service whose photo an admin replaced shows that photo first, ahead of its sample hairstyles.
+      const photo = { id: `svc-${s.service_id}`, service: s.service_name, name: s.service_name, storedFirst: true }
+      const styles = !s.image_url ? own : own.length ? [photo, ...own] : [photo]
+      return { service: s, styles }
+    })
     .filter((g) => g.styles.length), [services])
 
   if (!groups.length) return null
@@ -47,7 +54,7 @@ export default function HairstyleGallery() {
               <motion.div key={h.id} initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-40px' }} transition={{ duration: 0.45, delay: i * 0.06, ease: 'easeOut' }}>
                 <Link className="hs-card" to={`/book?service=${s.service_id}`} aria-label={`Book ${s.service_name}: ${h.name}`}>
-                  <div className="hs-img"><HairstyleImage style={h} /></div>
+                  <div className="hs-img"><HairstyleImage style={h} fallbackSrc={s.image_url} storedFirst={h.storedFirst} /></div>
                   <div className="hs-info">
                     <span className="hs-tag">{s.service_name}</span>
                     <h5>{h.name}</h5>

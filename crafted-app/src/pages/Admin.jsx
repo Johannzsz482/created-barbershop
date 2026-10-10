@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import Page from '../components/Page'
 import Modal from '../components/Modal'
@@ -16,8 +16,12 @@ import TopBarbers from '../components/TopBarbers'
 import ContactMessages from '../components/ContactMessages'
 import { useContactMessages } from '../lib/useContactMessages'
 import BarberPhotoPicker from '../components/BarberPhotoPicker'
+import ServiceImage, { serviceImageSources } from '../components/ServiceImage'
+import PhotoCropper from '../components/PhotoCropper'
 import ReturningCustomers from '../components/ReturningCustomers'
 
+const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const PHOTO_MAX_MB = 5   // the backend enforces the same limits
 const STATUSES = ['Pending', 'Confirmed', 'In Progress', 'Completed', 'Cancelled']
 const TABS = ['Overview', 'Appointments', 'Users', 'Barbers', 'Services', 'Schedules', 'Messages', 'Activity']
 const WEEK = [...DAYS.slice(1), 'Sunday']
@@ -175,11 +179,47 @@ function Barbers({ d }) {
 }
 
 function Services({ d }) {
-  const { services, barberServices, saveService, toggleService, deleteService } = d.cat
+  const { services, barberServices, saveService, addServiceWithPhoto, editServiceWithPhoto, toggleService, deleteService } = d.cat
   const [edit, setEdit] = useState(null); const f = bind(edit || {}, setEdit)
+  // Photo for a new service, or a replacement photo for an existing one (nothing is saved until Save is pressed)
+  const [photo, setPhoto] = useState(null); const [preview, setPreview] = useState('')   // preview = temporary address, used only to show the picked image
+  const [photoErr, setPhotoErr] = useState(''); const [saveErr, setSaveErr] = useState(''); const [saving, setSaving] = useState(false)
+  // Photo editor: pend = a photo open in the cropper (nothing is kept until Apply); orig = the photo the applied crop came from, so it can be adjusted again
+  const [pend, setPend] = useState(null); const [orig, setOrig] = useState(null); const [loadingCur, setLoadingCur] = useState(false)
+  const urls = useRef([])   // temporary addresses made for this form, all released when it closes
+  const mk = (blob) => { const u = URL.createObjectURL(blob); urls.current.push(u); return u }
+  const release = () => { urls.current.forEach((u) => URL.revokeObjectURL(u)); urls.current = [] }
+  useEffect(() => release, [])
+  const closeForm = () => { setEdit(null); setPhoto(null); setPreview(''); setPend(null); setOrig(null); release(); setPhotoErr(''); setSaveErr('') }
+  const onPick = (e) => {
+    const picked = e.target.files?.[0]; e.target.value = ''
+    if (!picked) return
+    if (!PHOTO_TYPES.includes(picked.type)) return setPhotoErr('Choose a JPG, PNG or WEBP image.')
+    if (picked.size > PHOTO_MAX_MB * 1024 * 1024) return setPhotoErr(`That image is larger than ${PHOTO_MAX_MB} MB.`)
+    setPhotoErr(''); setSaveErr(''); setPend({ url: mk(picked), view: null })   // opens the cropper; the photo is only kept once Apply is pressed
+  }
+  const applyCrop = (file, view) => { setPhoto(file); setPreview(mk(file)); setOrig({ url: pend.url, view }); setPend(null) }
+  const cancelCrop = () => setPend(null)   // leaves whatever photo was there before exactly as it was
+  const cancelPhoto = () => { setPhoto(null); setPreview(''); setOrig(null); setPhotoErr(''); setSaveErr('') }   // back to the photo the service already has
+  const adjustApplied = () => orig && setPend({ url: orig.url, view: orig.view })
+  const adjustCurrent = async () => {   // open the service's saved photo in the cropper (the saved photo itself is not touched)
+    setPhotoErr(''); setLoadingCur(true)
+    for (const src of serviceImageSources(edit.service_name, edit.image_url)) {
+      try { const r = await fetch(src); if (!r.ok) continue; const b = await r.blob(); if (!b.type.startsWith('image/')) continue; setLoadingCur(false); return setPend({ url: mk(b), view: null }) } catch { /* try the next one */ }
+    }
+    setLoadingCur(false); setPhotoErr('The current photo could not be opened for editing. Choose a file instead.')
+  }
   const used = (id) => d.appointments.some((a) => a.service_id === id)
-  const save = (e) => { e.preventDefault(); const price = +edit.price, mins = +edit.duration_minutes
-    if (!edit.service_name.trim() || !(price > 0) || !(mins > 0)) return; saveService({ ...edit, price, duration_minutes: mins }); setEdit(null) }
+  const save = async (e) => { e.preventDefault(); const price = +edit.price, mins = +edit.duration_minutes
+    if (pend || !edit.service_name.trim() || !(price > 0) || !(mins > 0)) return
+    if (photo) {   // a new photo (new service, or replacing the current one): stay open and show the problem if the upload or save fails
+      setSaving(true); setSaveErr('')
+      const r = await (edit.service_id ? editServiceWithPhoto : addServiceWithPhoto)({ ...edit, price, duration_minutes: mins }, photo)
+      setSaving(false)
+      if (!r.ok) return setSaveErr(r.error || 'The service was not saved. Please try again.')
+      return closeForm()
+    }
+    saveService({ ...edit, price, duration_minutes: mins }); closeForm() }
   return <div className="panel"><div className="toolbar"><span className="muted">{services.length} services</span><button className="btn btn-gold sm" onClick={() => setEdit({ service_name: '', description: '', price: '', duration_minutes: '' })}>+ Add service</button></div>
     <div className="table-wrap"><table className="tbl left"><thead><tr><th>Service</th><th>Price</th><th>Mins</th><th>Barbers</th><th>Active</th><th></th></tr></thead><tbody>
       {services.map((s) => { const n = barberServices.filter((x) => x.service_id === s.service_id).length
@@ -188,10 +228,22 @@ function Services({ d }) {
           <td className="acts"><button className="mini ghost" onClick={() => setEdit({ ...s })}>Edit</button>
             <button className="mini ghost" disabled={used(s.service_id)} title={used(s.service_id) ? 'Has bookings — deactivate instead' : 'Delete'} onClick={() => window.confirm(`Delete ${s.service_name}?`) && deleteService(s.service_id)}>Delete</button></td></tr> })}
     </tbody></table></div>
-    <Modal open={!!edit} onClose={() => setEdit(null)} title={edit?.service_id ? 'Edit service' : 'Add service'}>
+    <Modal open={!!edit} onClose={closeForm} title={edit?.service_id ? 'Edit service' : 'Add service'}>
       {edit && <form className="form-grid" onSubmit={save}><label className="full">Name<input {...f('service_name')} /></label><label className="full">Description<textarea {...f('description')} /></label>
         <label>Price (₱)<input type="number" min="1" {...f('price')} /></label><label>Duration (mins)<input type="number" min="5" step="5" {...f('duration_minutes')} /></label>
-        <button className="btn btn-gold full" type="submit">Save</button></form>}
+        {edit.service_id && !preview && !pend && <div className="full"><ServiceImage className="svc-photo-preview" name={edit.service_name} imageUrl={edit.image_url} alt="Current photo" />
+          <button className="link-danger" type="button" disabled={loadingCur || saving} onClick={adjustCurrent}>{loadingCur ? 'Opening…' : 'Adjust current photo'}</button></div>}
+        <label className="full">{edit.service_id ? 'Replace photo (optional)' : 'Photo (optional)'}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={onPick} /></label>
+        <p className="muted full" style={{ margin: 0 }}>JPG, PNG or WEBP, up to {PHOTO_MAX_MB} MB.</p>
+        {pend && <PhotoCropper key={pend.url} src={pend.url} initialView={pend.view} onApply={applyCrop} onCancel={cancelCrop} />}
+        {preview && !pend && <div className="full"><img className="svc-photo-preview" src={preview} alt="Selected photo preview" />
+          {edit.service_id && <p className="muted" style={{ margin: '6px 0 0' }}>New photo (not saved yet)</p>}
+          <div className="photo-edit-actions"><button className="link-danger" type="button" disabled={saving} onClick={adjustApplied}>Adjust photo</button>
+            {edit.service_id && <button className="link-danger" type="button" disabled={saving} onClick={cancelPhoto}>Cancel new photo</button>}</div></div>}
+        {photoErr && <p className="full" role="alert" style={{ margin: 0, color: '#e5736b' }}>{photoErr}</p>}
+        {saveErr && <p className="full" role="alert" style={{ margin: 0, color: '#e5736b' }}>{saveErr}</p>}
+        {pend && <p className="muted full" style={{ margin: 0 }}>Apply or Cancel the photo edit before saving.</p>}
+        <button className="btn btn-gold full" type="submit" disabled={saving || !!pend}>{saving ? 'Saving…' : 'Save'}</button></form>}
     </Modal></div>
 }
 
