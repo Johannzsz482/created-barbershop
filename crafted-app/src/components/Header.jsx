@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion, useScroll } from 'framer-motion'
 import { useAuth } from '../context/AuthContext'
-import { refresh, refreshUnreadMessages, useStore } from '../api'
+import { refresh, refreshUnreadMessages, refreshUnreadReplies, unreadRepliesFor, useStore } from '../api'
 import { badgeText, pendingCount } from '../lib/pending'
 
 // badge = { count, label } for the last link: Admin (pending appointments + unread messages) or Barber (own pending)
@@ -27,7 +27,8 @@ export default function Header() {
   const { pathname, hash } = useLocation()
   const [scrolled, setScrolled] = useState(false)
   const [open, setOpen] = useState(false)
-  const { appointments, barbers, unreadMessages } = useStore()
+  const store = useStore()
+  const { appointments, barbers, unreadMessages } = store
 
   // Staff badges. Admin: every pending appointment + unread contact messages. Barber: only their own pending
   // appointments, on any date. Customers (and signed-out visitors) never get a badge.
@@ -35,6 +36,8 @@ export default function Header() {
   const myBarberId = role === 'Barber' ? barbers.find((b) => b.user_id === user.users_id)?.barber_id : undefined
   const pending = role === 'Admin' ? pendingCount(appointments) : role === 'Barber' && myBarberId != null ? pendingCount(appointments, myBarberId) : 0
   const unread = role === 'Admin' ? unreadMessages : 0
+  // Customers and barbers: admin replies they have not opened yet (a badge on the profile icon, where My messages lives)
+  const replies = role && role !== 'Admin' ? unreadRepliesFor(store, user.users_id) : 0
   const badge = pending + unread > 0 ? {
     count: pending + unread,
     label: [pending && `${pending} pending ${pending === 1 ? 'appointment' : 'appointments'}`, unread && `${unread} unread ${unread === 1 ? 'message' : 'messages'}`].filter(Boolean).join(', '),
@@ -48,6 +51,17 @@ export default function Header() {
     window.addEventListener('focus', sync)
     return () => window.removeEventListener('focus', sync)
   }, [role, pathname])
+
+  // Replies come from the admin, so check when the page changes, when the tab is focused again, and once a minute while it is open
+  const uid = role && role !== 'Admin' ? user.users_id : null
+  useEffect(() => {
+    if (uid == null) return undefined
+    const check = () => { if (document.visibilityState !== 'hidden') refreshUnreadReplies(uid) }
+    check()
+    window.addEventListener('focus', check)
+    const timer = setInterval(check, 60000)
+    return () => { window.removeEventListener('focus', check); clearInterval(timer) }
+  }, [uid, pathname])
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10)
@@ -82,10 +96,11 @@ export default function Header() {
             </li>
           ))}
         </ul>
-        <Link className="nav-user" to={user ? '/profile' : '/signin'} aria-label={user ? 'Profile' : 'Sign in'}>
+        <Link className="nav-user" to={user ? '/profile' : '/signin'} aria-label={user ? (replies ? `Profile, ${replies} new ${replies === 1 ? 'reply' : 'replies'} to your messages` : 'Profile') : 'Sign in'}>
           <svg width="22" height="28" viewBox="0 0 22 28" fill="none" stroke="currentColor" strokeWidth="2.5">
             <circle cx="11" cy="6" r="3.5" /><rect x="3" y="14" width="16" height="11" rx="5.5" />
           </svg>
+          {replies > 0 && <span className="notif-badge" aria-hidden="true">{badgeText(replies)}</span>}
         </Link>
         <button className="nav-toggle" onClick={() => setOpen((o) => !o)} aria-label="Menu" aria-expanded={open}>
           <span /><span /><span />

@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { markAllSeen, unseenReplies } from './lib/replySeen'
 
 // ---------------------------------------------------------------------------
 // Talks to the Spring Boot backend and keeps one shared copy of the data.
@@ -37,6 +38,7 @@ let state = {
   ready: false, offline: false,
   users: [], barbers: [], services: [], schedules: [], barberServices: [], appointments: [], logs: [],
   unreadMessages: 0,   // Admin only: unread Contact Us messages (the header and tab badges read this)
+  unreadReplies: { uid: null, n: 0 },   // Customer/Barber: admin replies not opened yet, for that account only (see unreadRepliesFor)
 }
 const listeners = new Set()
 const emit = () => listeners.forEach((l) => l())
@@ -49,7 +51,7 @@ export function useStore() {
 // Reload everything from the server (what you are allowed to see depends on who is signed in)
 export async function refresh() {
   const r = await api('/bootstrap')
-  if (r.ok) state = { ...normalize(r.data), unreadMessages: state.unreadMessages, ready: true, offline: false }
+  if (r.ok) state = { ...normalize(r.data), unreadMessages: state.unreadMessages, unreadReplies: state.unreadReplies, ready: true, offline: false }
   else state = { ...state, ready: true, offline: state.barbers.length === 0 }
   emit()
   return r.ok
@@ -73,6 +75,42 @@ export async function refreshUnreadMessages() {
   if (!r.ok || !Array.isArray(r.data)) return false
   setUnreadMessages(r.data.filter((m) => !m.is_read).length)
   return true
+}
+
+// Customer/Barber: admin replies in My messages that this account has not opened yet.
+// The count is always worked out from GET /api/contact/my (never added up), so refreshing again cannot count a reply twice.
+// It is stored with the account it belongs to, so nobody ever sees another account's count. What was already seen is
+// remembered in this browser, per account.
+const seenKey = (uid) => `crafted_seen_replies_${uid}`
+const seenMemory = {}   // fallback when the browser blocks localStorage
+const readSeen = (uid) => {
+  try { return JSON.parse(localStorage.getItem(seenKey(uid))) || {} } catch { return seenMemory[uid] || {} }
+}
+const writeSeen = (uid, seen) => {
+  seenMemory[uid] = seen
+  try { localStorage.setItem(seenKey(uid), JSON.stringify(seen)) } catch { /* kept in memory only */ }
+}
+const setUnreadReplies = (uid, n) => patch((s) => (s.unreadReplies.uid === uid && s.unreadReplies.n === n ? s : { ...s, unreadReplies: { uid, n } }))
+export const unreadRepliesFor = (s, uid) => (uid != null && s.unreadReplies.uid === uid ? s.unreadReplies.n : 0)
+
+let repliesCheck = null   // one request at a time: a burst of refreshes shares the same answer
+export function refreshUnreadReplies(uid) {
+  if (repliesCheck && repliesCheck.uid === uid) return repliesCheck.promise
+  const promise = api('/contact/my').then((r) => {
+    if (!r.ok || !Array.isArray(r.data)) return false
+    setUnreadReplies(uid, unseenReplies(r.data, readSeen(uid)).length)
+    return true
+  }).finally(() => { if (repliesCheck && repliesCheck.promise === promise) repliesCheck = null })
+  repliesCheck = { uid, promise }
+  return promise
+}
+
+// My messages calls this with the list it just showed: returns the messages that were new, and clears the badge
+export function markRepliesSeen(uid, rows) {
+  const fresh = unseenReplies(rows, readSeen(uid))
+  writeSeen(uid, markAllSeen(rows))
+  setUnreadReplies(uid, 0)
+  return fresh
 }
 
 // ---- requests ----

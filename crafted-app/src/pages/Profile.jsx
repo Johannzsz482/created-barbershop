@@ -8,8 +8,10 @@ import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
 import Avatar, { barberPhotoSources } from '../components/Avatar'
 import PhotoCropper from '../components/PhotoCropper'
-import { fileUrl } from '../api'
+import MyMessages from '../components/MyMessages'
+import { fileUrl, unreadRepliesFor, useStore } from '../api'
 import { cleanEmail, cleanUsername, rules } from '../lib/validate'
+import { badgeText } from '../lib/pending'
 
 const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const PHOTO_MAX_MB = 5   // the backend enforces the same limits
@@ -21,7 +23,8 @@ export default function Profile() {
   const { user, myBarber, logout, changePassword, updateProfile, changePhoto, removePhoto, deleteAccount } = useAuth()
   const { cancelActiveFor } = useData()
   const navigate = useNavigate()
-  const [modal, setModal] = useState(null) // 'pw' | 'del' | 'photo' | 'edit' | null
+  const unreadReplies = unreadRepliesFor(useStore(), user.users_id)   // admin replies not opened yet (shown on the My messages button)
+  const [modal, setModal] = useState(null) // 'pw' | 'del' | 'photo' | 'edit' | 'msgs' | null
   const fileRef = useRef(null)
   const [file, setFile] = useState(null)       // the edited picture waiting to be saved (not saved yet)
   const [preview, setPreview] = useState('')   // temporary address used only to preview that picture
@@ -161,6 +164,11 @@ export default function Profile() {
             <button className="btn btn-outline" onClick={openEdit}>Edit profile</button>
             <button className="btn btn-outline" onClick={() => setModal('pw')}>Change password</button>
             {canPhoto && <button className="btn btn-outline" onClick={() => setModal('photo')}>Change picture</button>}
+            {user.role !== 'Admin' && (
+              <button className="btn btn-outline" onClick={() => setModal('msgs')} aria-label={unreadReplies ? `My messages, ${unreadReplies} new ${unreadReplies === 1 ? 'reply' : 'replies'}` : undefined}>
+                My messages{unreadReplies > 0 && <span className="notif-badge" aria-hidden="true">{badgeText(unreadReplies)}</span>}
+              </button>
+            )}
             {user.role === 'Customer' && <button className="link-danger" onClick={() => setModal('del')}>Delete my account</button>}
           </div>
         </motion.div>
@@ -190,6 +198,11 @@ export default function Profile() {
           <p className="auth-error" role="alert">{error}</p>
           <div className="row-btns"><button className="btn btn-gold" type="submit" disabled={saving}>Save changes</button><button className="btn btn-outline" type="button" onClick={close}>Cancel</button></div>
         </form>
+      </Modal>
+
+      <Modal open={modal === 'msgs'} onClose={close} title="My messages">
+        {modal === 'msgs' && <MyMessages />}
+        <div className="row-btns"><button className="btn btn-gold" type="button" onClick={close}>Done</button></div>
       </Modal>
 
       <Modal open={modal === 'photo'} onClose={close} title="Change picture">

@@ -200,3 +200,30 @@ a.shot:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
 /* Small gold notification badge (Admin / Barber header link, Admin tabs, Pending buttons) */
 .notif-badge { display: inline-block; min-width: 18px; height: 18px; margin-left: 6px; padding: 0 5px; border-radius: 9px; background: var(--gold); color: #1c1c1c; font: 700 11px/18px var(--sans); letter-spacing: 0; text-align: center; vertical-align: middle; }
 .nav-links a .nav-badge { position: absolute; top: -4px; right: -18px; margin: 0; }
+.nav-user .notif-badge { position: absolute; top: -8px; right: -12px; margin: 0; }   /* unread replies on the profile icon */
+
+/* Admin services: tidy booking-protection indicator */
+.service-booked-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  border: 1px solid rgba(229, 115, 107, 0.35);
+  border-radius: 999px;
+  background: rgba(229, 115, 107, 0.1);
+  color: #e5736b;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.acts .mini:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.acts .mini:disabled:hover {
+  background: none;
+  color: var(--text);
+}
