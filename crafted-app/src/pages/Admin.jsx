@@ -225,7 +225,7 @@ function Services({ d }) {
     }
     setLoadingCur(false); setPhotoErr('The current photo could not be opened for editing. Choose a file instead.')
   }
-  const used = (id) => d.appointments.some((a) => a.service_id === id)
+  const used = (id) => d.appointments.some((a) => a.service_id === id && ['Pending', 'Confirmed', 'In Progress'].includes(a.status))
   const save = async (e) => { e.preventDefault(); const price = +edit.price, mins = +edit.duration_minutes
     if (pend || !edit.service_name.trim() || !(price > 0) || !(mins > 0)) return
     if (photo) {   // a new photo (new service, or replacing the current one): stay open and show the problem if the upload or save fails
@@ -243,7 +243,7 @@ function Services({ d }) {
           <td><Switch on={s.is_active} onClick={() => toggleService(s.service_id)} label="Toggle active" /></td>
           <td className="acts"><button className="mini ghost" onClick={() => setEdit({ ...s })}>Edit</button>
             <button className="mini ghost" disabled={used(s.service_id)} title={used(s.service_id) ? 'Has bookings — deactivate instead' : 'Delete'} onClick={() => window.confirm(`Delete ${s.service_name}?`) && deleteService(s.service_id)}>Delete</button>
-            {used(s.service_id) && <small style={{ alignSelf: 'center' }}>Booked</small>}</td></tr> })}
+            <small style={{ alignSelf: 'center', visibility: used(s.service_id) ? 'visible' : 'hidden' }}>Booked</small></td></tr> })}
     </tbody></table></div>
     <Modal open={!!edit} onClose={closeForm} title={edit?.service_id ? 'Edit service' : 'Add service'}>
       {edit && <form className="form-grid" onSubmit={save}><label className="full">Name<input {...f('service_name')} /></label><label className="full">Description<textarea {...f('description')} /></label>
