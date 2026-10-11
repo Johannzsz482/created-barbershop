@@ -1,16 +1,13 @@
-/* Sample hairstyle gallery (Services section) */
+/* Services gallery (Home > Services section) */
 .hs { margin-top: 90px; text-align: left; }
 .hs-title { font: 700 40px/1.2 var(--serif); text-align: center; color: var(--text); }
 .hs-sub { text-align: center; color: var(--muted); margin: 8px 0 28px; font-size: 16px; }
-.hs-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 36px; }
-.hs-chip { background: transparent; color: var(--text); border: 1px solid var(--line); border-radius: 999px; padding: 8px 18px; font: 600 14px var(--sans); cursor: pointer; transition: border-color .2s, color .2s, background .2s; }
-.hs-chip:hover { border-color: var(--gold); color: var(--gold); }
-.hs-chip.on { background: var(--gold); border-color: var(--gold); color: #1c1c1c; }
-.hs-chip:focus-visible, .hs-card:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
-.hs-group + .hs-group { margin-top: 44px; }
-.hs-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; padding-bottom: 10px; margin-bottom: 18px; border-bottom: 1px solid var(--line); }
-.hs-head h4 { font: 700 26px var(--serif); color: var(--text); }
-.hs-head span { color: var(--gold); font: 700 16px var(--sans); }
+.hs-filter { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 36px; }
+.hs-filter label { color: var(--muted); font: 600 14px var(--sans); }
+.hs-select { background: #1c1c1c; color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 10px 40px 10px 16px; min-width: 240px; max-width: 100%; font: 600 15px var(--sans); cursor: pointer; transition: border-color .2s; }
+.hs-select:hover, .hs-select:focus-visible { border-color: var(--gold); outline: none; }
+.hs-select option { background: #1c1c1c; color: var(--text); }
+.hs-card:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 .hs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 20px; }
 .hs-card { display: block; color: inherit; text-decoration: none; background: linear-gradient(160deg, #262626, #1c1c1c); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; cursor: pointer; transition: transform .25s, border-color .25s, box-shadow .25s; }
 .hs-card:hover { transform: translateY(-4px); border-color: var(--gold); box-shadow: 0 16px 36px rgba(0, 0, 0, .45); }
@@ -23,9 +20,8 @@
 @media (max-width: 700px) {
   .hs { margin-top: 64px; }
   .hs-title { font-size: 32px; }
-  .hs-chips { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; }
-  .hs-chips::-webkit-scrollbar { display: none; }
-  .hs-chip { flex: 0 0 auto; }
+  .hs-filter { flex-direction: column; gap: 6px; }
+  .hs-select { width: 100%; }
   .hs-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
   .hs-info { padding: 10px 12px 14px; }
   .hs-info h5 { font-size: 18px; }
@@ -34,4 +30,4 @@
 @media (prefers-reduced-motion: reduce) { .hs-card, .hs-img img { transition: none; } }
 
 /* A service shown in the gallery that cannot be booked right now */
-.hs-note { flex-basis: 100%; color: var(--muted); font: 400 14px var(--sans); }
+.hs-note { display: block; margin-top: 8px; color: var(--muted); font: 400 14px var(--sans); }
