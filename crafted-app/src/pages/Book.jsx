@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
 import { useCatalog } from '../context/CatalogContext'
 import { useSlots } from '../lib/useSlots'
+import { composeNotes } from '../lib/hairstyleNote'
 import { serviceAvailability, unavailableMessage } from '../lib/availability'
 import { DAYS, toHHMM, fmt12, iso, peso, fullName, prettyDate } from '../lib/time'
 import '../styles/booking.css'
@@ -58,7 +59,10 @@ export default function Book() {
   const catalog = { barbers, schedules, barberServices }
   const bookable = services.filter((s) => serviceAvailability(s, catalog).bookable)
   // Optional preselected service from /book?service=<id> (e.g. from the hairstyle gallery); only used when it is bookable
-  const wanted = skipPreset ? null : params.get('service')
+  // If only ?style=<id> is given, the hairstyle's own service is used (ids come from the database, never names)
+  const styleParam = skipPreset ? null : params.get('style')
+  const styleOwner = styleParam ? hairstyles.find((h) => String(h.hairstyle_id) === styleParam && h.is_active)?.service_id : undefined
+  const wanted = skipPreset ? null : params.get('service') ?? (styleOwner != null ? String(styleOwner) : null)
   const presetService = bookable.find((s) => String(s.service_id) === wanted)?.service_id ?? null
   // A requested service that cannot be booked gets an explanation instead of being silently ignored
   const wantedService = wanted && !presetService ? services.find((s) => String(s.service_id) === wanted) : null
@@ -68,7 +72,7 @@ export default function Book() {
   const barber = barbers.find((b) => b.barber_id === sel.barber)
   // Optional hairstyle under the chosen service. It only goes into the appointment notes; price, duration and barbers still come from the service.
   const serviceStyles = service ? hairstyles.filter((h) => h.is_active && h.service_id === service.service_id) : []
-  const wantedStyle = skipPreset ? null : params.get('style')
+  const wantedStyle = styleParam
   const styleId = styleSel !== undefined ? styleSel : serviceStyles.find((h) => String(h.hairstyle_id) === wantedStyle)?.hairstyle_id ?? null
   const hairstyle = serviceStyles.find((h) => h.hairstyle_id === styleId) || null
   const barberChoices = service ? barbers.filter((b) => b.is_active && barberOffers(b, service.service_id) && activeSchedules(b.barber_id).length) : []
@@ -94,7 +98,8 @@ export default function Book() {
     const res = await addAppointment({
       barber_id: barber.barber_id, service_id: service.service_id, appointment_date: sel.date,
       start_time: toHHMM(sel.time), end_time: toHHMM(sel.time + service.duration_minutes),
-      notes: [hairstyle ? `Hairstyle: ${hairstyle.name}.` : '', notes.trim()].filter(Boolean).join(' '),
+      // "Hairstyle: Name." goes in front of what the customer typed; typed notes are kept and the prefix is never doubled
+      notes: composeNotes(hairstyle?.name, notes),
     }, user.users_id)
     if (!res.ok) { window.alert(res.error); pick({ time: null }); reloadSlots(); return }
     setDone(res.appointment)
@@ -135,7 +140,7 @@ export default function Book() {
         <Panel n={1} step={step} title="Select Service" sub="Choose from our signature tailored haircuts and grooming treatments.">
           <div className="svc-grid">
             {bookable.map((s) => (
-              <motion.button key={s.service_id} whileHover={{ y: -3 }} whileTap={{ scale: 0.98 }} className={`svc-card${sel.service === s.service_id ? ' on' : ''}`} aria-pressed={sel.service === s.service_id} onClick={() => setSel({ service: s.service_id, barber: null, date: null, time: null })}>
+              <motion.button key={s.service_id} whileHover={{ y: -3 }} whileTap={{ scale: 0.98 }} className={`svc-card${sel.service === s.service_id ? ' on' : ''}`} aria-pressed={sel.service === s.service_id} onClick={() => { if (sel.service !== s.service_id) setStyleSel(null); setSel({ service: s.service_id, barber: null, date: null, time: null }) }}>
                 <div className="svc-img"><ServiceImage name={s.service_name} imageUrl={s.image_url} loading="lazy" /></div>
                 <div className="top"><h3>{s.service_name}</h3><b>{peso(s.price)}</b></div>
                 <p>{s.description}</p>
