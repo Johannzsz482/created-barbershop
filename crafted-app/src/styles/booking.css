@@ -63,3 +63,6 @@
   .sel-bar img { width: 56px; height: 44px; } .sel-name h4, .sel-meta b { font-size: 17px; }
 }
 @media (max-width: 400px) { .svc-grid { grid-template-columns: 1fr; } }
+
+/* Explanation shown when a service chosen elsewhere (e.g. from the gallery) cannot be booked */
+.avail-note { margin: 0 0 18px; padding: 12px 16px; border: 1px solid var(--gold); border-left-width: 4px; border-radius: 12px; color: var(--text); }

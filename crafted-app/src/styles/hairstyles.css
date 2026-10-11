@@ -32,3 +32,6 @@
 }
 @media (max-width: 380px) { .hs-grid { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) { .hs-card, .hs-img img { transition: none; } }
+
+/* A service shown in the gallery that cannot be booked right now */
+.hs-note { flex-basis: 100%; color: var(--muted); font: 400 14px var(--sans); }

@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
 import { useCatalog } from '../context/CatalogContext'
 import { useSlots } from '../lib/useSlots'
+import { serviceAvailability, unavailableMessage } from '../lib/availability'
 import { DAYS, toHHMM, fmt12, iso, peso, fullName, prettyDate } from '../lib/time'
 import '../styles/booking.css'
 
@@ -52,10 +53,15 @@ export default function Book() {
   const barberOffers = (b, s) => barberServices.some((x) => x.barber_id === b.barber_id && x.service_id === s)
   const activeSchedules = (b) => schedules.filter((s) => s.barber_id === b && s.is_active)
 
-  // Only show services that an active, scheduled barber can actually perform
-  const bookable = services.filter((s) => s.is_active && barbers.some((b) => b.is_active && barberOffers(b, s.service_id) && activeSchedules(b.barber_id).length))
-  // Optional preselected service from /book?service=<id> (e.g. from the hairstyle gallery); ignored unless it is bookable
-  const presetService = skipPreset ? null : (bookable.find((s) => String(s.service_id) === params.get('service'))?.service_id ?? null)
+  // Only show services that an active, scheduled barber can actually perform (the same rule the gallery and Admin use)
+  const catalog = { barbers, schedules, barberServices }
+  const bookable = services.filter((s) => serviceAvailability(s, catalog).bookable)
+  // Optional preselected service from /book?service=<id> (e.g. from the hairstyle gallery); only used when it is bookable
+  const wanted = skipPreset ? null : params.get('service')
+  const presetService = bookable.find((s) => String(s.service_id) === wanted)?.service_id ?? null
+  // A requested service that cannot be booked gets an explanation instead of being silently ignored
+  const wantedService = wanted && !presetService ? services.find((s) => String(s.service_id) === wanted) : null
+  const presetNote = !wanted || presetService ? '' : wantedService ? unavailableMessage(wantedService.service_name, serviceAvailability(wantedService, catalog).reason) : 'That service could not be found.'
   const sel = { ...selRaw, service: selRaw.service ?? presetService }
   const service = services.find((s) => s.service_id === sel.service)
   const barber = barbers.find((b) => b.barber_id === sel.barber)
@@ -109,6 +115,7 @@ export default function Book() {
     <Page>
       <div className="page-title"><h1>BOOK AN APPOINTMENT</h1></div>
       <section className="page-body narrow">
+        {presetNote && <p className="avail-note" role="status">{presetNote} Please choose one of the services below.</p>}
         <ol className="stepper">
           {STEPS.map((s, i) => (
             <li key={s} className={step > i + 1 ? 'done' : step === i + 1 ? 'now' : ''}>

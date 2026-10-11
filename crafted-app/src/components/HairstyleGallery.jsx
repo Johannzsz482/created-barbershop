@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useCatalog } from '../context/CatalogContext'
 import { hairstyles } from '../data/hairstyles'
+import { serviceAvailability } from '../lib/availability'
 import HairstyleImage from './HairstyleImage'
 import '../styles/hairstyles.css'
 
@@ -12,7 +13,7 @@ const key = (s) => String(s).trim().toLowerCase()
 // Sample hairstyle gallery. Services come from the existing catalog, so prices and durations
 // are never duplicated here. Each card opens the existing booking page with its service preselected.
 export default function HairstyleGallery() {
-  const { services } = useCatalog()
+  const { services, barbers, schedules, barberServices } = useCatalog()
   const [active, setActive] = useState('all')
 
   // Only active services that have sample hairstyles
@@ -24,9 +25,9 @@ export default function HairstyleGallery() {
       // A built-in service whose photo an admin replaced shows that photo first, ahead of its sample hairstyles.
       const photo = { id: `svc-${s.service_id}`, service: s.service_name, name: s.service_name, storedFirst: true }
       const styles = !s.image_url ? own : own.length ? [photo, ...own] : [photo]
-      return { service: s, styles }
+      return { service: s, styles, bookable: serviceAvailability(s, { barbers, schedules, barberServices }).bookable }
     })
-    .filter((g) => g.styles.length), [services])
+    .filter((g) => g.styles.length), [services, barbers, schedules, barberServices])
 
   if (!groups.length) return null
   const shown = active === 'all' ? groups : groups.filter((g) => g.service.service_id === active)
@@ -43,11 +44,12 @@ export default function HairstyleGallery() {
         ))}
       </div>
 
-      {shown.map(({ service: s, styles }) => (
+      {shown.map(({ service: s, styles, bookable }) => (
         <section className="hs-group" key={s.service_id} aria-label={`${s.service_name} hairstyles`}>
           <header className="hs-head">
             <h4>{s.service_name}</h4>
             <span>{peso(s.price)} · {s.duration_minutes} mins</span>
+            {!bookable && <small className="hs-note">Not available to book right now.</small>}
           </header>
           <div className="hs-grid">
             {styles.map((h, i) => (

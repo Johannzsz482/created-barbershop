@@ -20,6 +20,7 @@ import BarberPhotoPicker from '../components/BarberPhotoPicker'
 import ServiceImage, { serviceImageSources } from '../components/ServiceImage'
 import PhotoCropper from '../components/PhotoCropper'
 import ReturningCustomers from '../components/ReturningCustomers'
+import { serviceAvailability } from '../lib/availability'
 
 const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const PHOTO_MAX_MB = 5   // the backend enforces the same limits
@@ -239,7 +240,9 @@ function Services({ d }) {
   return <div className="panel"><div className="toolbar"><span className="muted">{services.length} services</span><button className="btn btn-gold sm" onClick={() => setEdit({ service_name: '', description: '', price: '', duration_minutes: '' })}>+ Add service</button></div>
     <div className="table-wrap"><table className="tbl left"><thead><tr><th>Service</th><th>Price</th><th>Mins</th><th>Barbers</th><th>Active</th><th></th></tr></thead><tbody>
       {services.map((s) => { const n = barberServices.filter((x) => x.service_id === s.service_id).length
-        return <tr key={s.service_id}><td>{s.service_name}</td><td>{peso(s.price)}</td><td>{s.duration_minutes}</td><td className={n ? '' : 'warn'}>{n || 'No barber'}</td>
+        // Why customers cannot book it, when it is switched on but still unbookable (same rule as the Booking page)
+        const why = n === 0 ? 'No barber' : { 'barber-inactive': `${n} · barbers inactive`, 'no-schedule': `${n} · no schedule` }[serviceAvailability(s, d.cat).reason] || ''
+        return <tr key={s.service_id}><td>{s.service_name}</td><td>{peso(s.price)}</td><td>{s.duration_minutes}</td><td className={why ? 'warn' : ''}>{why || n}</td>
           <td><Switch on={s.is_active} onClick={() => toggleService(s.service_id)} label="Toggle active" /></td>
           <td className="acts"><button className="mini ghost" onClick={() => setEdit({ ...s })}>Edit</button>
             <button className="mini ghost" disabled={used(s.service_id)} title={used(s.service_id) ? 'Has bookings — deactivate instead' : 'Delete'} onClick={() => window.confirm(`Delete ${s.service_name}?`) && deleteService(s.service_id)}>Delete</button>
