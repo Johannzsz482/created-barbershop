@@ -51,6 +51,10 @@ public class BootstrapController {
             "SELECT schedule_id, barber_id, day_of_week, TIME_FORMAT(start_time, '%H:%i') AS start_time, " +
             "TIME_FORMAT(end_time, '%H:%i') AS end_time, is_active FROM schedules"));
         out.put("barberServices", jdbc.queryForList("SELECT barber_id, service_id FROM barber_services"));
+        // Individual hairstyles grouped under a service (the category). Customers only get the active ones; admins get all of them.
+        out.put("hairstyles", jdbc.queryForList(
+            "SELECT hairstyle_id, service_id, name, image_key, display_order, is_active FROM hairstyles " +
+            ("ADMIN".equals(role) ? "" : "WHERE is_active = TRUE ") + "ORDER BY service_id, display_order, hairstyle_id"));
 
         List<Map<String, Object>> appointments = List.of(), users = List.of(), logs = List.of();
         if (uid != null && "ADMIN".equals(role)) {

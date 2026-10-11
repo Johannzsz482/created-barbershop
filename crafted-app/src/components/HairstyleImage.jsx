@@ -10,8 +10,9 @@ import { fileUrl } from '../api'
 // stored image_url (passed as fallbackSrc) is that service picture shown instead of the placeholder.
 const EXTENSIONS = ['jpg', 'png', 'jpeg', 'webp', 'jfif']
 
-export default function HairstyleImage({ style, fallbackSrc, storedFirst }) {
-  const slug = serviceSlug(style?.name)
+export default function HairstyleImage({ style, fallbackSrc, storedFirst, compact }) {
+  // image_key (set by the database) keeps a hairstyle's picture when it is renamed; without one the name is used
+  const slug = serviceSlug(style?.image_key || style?.name)
   const sources = slug ? EXTENSIONS.map((e) => `/assets/${slug}.${e}`) : []
   const stored = typeof fallbackSrc === 'string' ? fallbackSrc.trim() : ''
   if (stored) { if (storedFirst) sources.unshift(fileUrl(stored)); else sources.push(fileUrl(stored)) }   // storedFirst: a service with no styles of its own
@@ -22,6 +23,7 @@ export default function HairstyleImage({ style, fallbackSrc, storedFirst }) {
   const tried = fail.k === k ? fail.n : 0
 
   if (tried >= sources.length) {
+    if (compact) return <div role="img" aria-label={`${style?.name ?? 'Hairstyle'}: no photo`} style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center', color: '#bbb', fontSize: 11, textAlign: 'center' }}>No photo</div>
     return (
       <div role="img" aria-label={`${style?.name ?? 'Hairstyle'} sample (image missing: ${slug || 'no name'})`}
         style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center',

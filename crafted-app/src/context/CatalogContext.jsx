@@ -20,13 +20,19 @@ const uploadAnswer = (r) => ((r.status === 405 || r.status === 415)
   ? { ...r, error: 'The server could not accept the photo. It may be running an older version without photo upload: rebuild and restart the backend, then try again.' }
   : r)
 
-// Barbers, services, schedules and barber-service links now come from the database.
+const hairstyleCall = async (path, method, body) => {
+  const r = await api(path, method, body)
+  if (r.ok) await refresh()
+  return r
+}
+
+// Barbers, services, hairstyles, schedules and barber-service links now come from the database.
 // Only admins can change them (the backend returns 403 to anyone else).
 export function CatalogProvider({ children }) {
-  const { barbers, services, schedules, barberServices } = useStore()
+  const { barbers, services, hairstyles, schedules, barberServices } = useStore()
 
   const value = {
-    barbers, services, schedules, barberServices,
+    barbers, services, hairstyles, schedules, barberServices,
 
     saveService: (s) => (s.service_id
       ? act(`/admin/services/${s.service_id}`, 'PUT', s)
@@ -46,6 +52,12 @@ export function CatalogProvider({ children }) {
     },
     toggleService: (id) => act(`/admin/services/${id}/toggle`, 'PATCH'),
     deleteService: (id) => act(`/admin/services/${id}`, 'DELETE'),
+
+    // Hairstyles sit under an existing service (the category). These return the server's answer (no alert) so the Admin form can show the error.
+    addHairstyle: (serviceId, name) => hairstyleCall(`/admin/services/${serviceId}/hairstyles`, 'POST', { name }),
+    saveHairstyle: (h) => hairstyleCall(`/admin/hairstyles/${h.hairstyle_id}`, 'PUT', { name: h.name, is_active: h.is_active }),
+    toggleHairstyle: (id) => hairstyleCall(`/admin/hairstyles/${id}/toggle`, 'PATCH'),
+    deleteHairstyle: (id) => hairstyleCall(`/admin/hairstyles/${id}`, 'DELETE'),
 
     saveBarber: (b) => (b.barber_id
       ? act(`/admin/barbers/${b.barber_id}`, 'PUT', b)

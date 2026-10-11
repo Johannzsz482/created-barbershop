@@ -21,6 +21,7 @@ import ServiceImage, { serviceImageSources } from '../components/ServiceImage'
 import PhotoCropper from '../components/PhotoCropper'
 import ReturningCustomers from '../components/ReturningCustomers'
 import { serviceAvailability } from '../lib/availability'
+import HairstyleAdmin from '../components/HairstyleAdmin'
 
 const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const PHOTO_MAX_MB = 5   // the backend enforces the same limits
@@ -237,7 +238,7 @@ function Services({ d }) {
       return closeForm()
     }
     saveService({ ...edit, price, duration_minutes: mins }); closeForm() }
-  return <div className="panel"><div className="toolbar"><span className="muted">{services.length} services</span><button className="btn btn-gold sm" onClick={() => setEdit({ service_name: '', description: '', price: '', duration_minutes: '' })}>+ Add service</button></div>
+  return <><div className="panel"><div className="toolbar"><span className="muted">{services.length} services</span><button className="btn btn-gold sm" onClick={() => setEdit({ service_name: '', description: '', price: '', duration_minutes: '' })}>+ Add service</button></div>
     <div className="table-wrap"><table className="tbl left"><thead><tr><th>Service</th><th>Price</th><th>Mins</th><th>Barbers</th><th>Active</th><th></th></tr></thead><tbody>
       {services.map((s) => { const n = barberServices.filter((x) => x.service_id === s.service_id).length
         // Why customers cannot book it, when it is switched on but still unbookable (same rule as the Booking page)
@@ -265,6 +266,7 @@ function Services({ d }) {
         {pend && <p className="muted full" style={{ margin: 0 }}>Apply or Cancel the photo edit before saving.</p>}
         <button className="btn btn-gold full" type="submit" disabled={saving || !!pend}>{saving ? 'Saving…' : 'Save'}</button></form>}
     </Modal></div>
+    <HairstyleAdmin /></>
 }
 
 function Schedules({ d }) {

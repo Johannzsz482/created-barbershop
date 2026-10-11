@@ -66,3 +66,12 @@
 
 /* Explanation shown when a service chosen elsewhere (e.g. from the gallery) cannot be booked */
 .avail-note { margin: 0 0 18px; padding: 12px 16px; border: 1px solid var(--gold); border-left-width: 4px; border-radius: 12px; color: var(--text); }
+
+/* Optional hairstyle chips under the selected service (Book page) */
+.style-pick { margin-top: 16px; text-align: left; }
+.style-pick small { display: block; margin-bottom: 8px; color: var(--gold); font: 700 11px var(--sans); text-transform: uppercase; letter-spacing: .08em; }
+.style-pick [role="group"] { display: flex; flex-wrap: wrap; gap: 10px; }
+.style-chip { background: transparent; color: var(--text); border: 1px solid var(--line); border-radius: 999px; padding: 8px 18px; font: 600 14px var(--sans); cursor: pointer; transition: border-color .2s, color .2s, background .2s; }
+.style-chip:hover { border-color: var(--gold); color: var(--gold); }
+.style-chip.on { background: var(--gold); border-color: var(--gold); color: #1c1c1c; }
+.style-chip:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }

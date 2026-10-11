@@ -41,12 +41,13 @@ function Panel({ n, step, title, sub, children }) {
 export default function Book() {
   const { user } = useAuth()
   const { addAppointment } = useData()
-  const { barbers, services, schedules, barberServices } = useCatalog()
+  const { barbers, services, hairstyles, schedules, barberServices } = useCatalog()
   const today = new Date()
   const [selRaw, setSel] = useState({ service: null, barber: null, date: null, time: null })
   const [params] = useSearchParams()
   const [skipPreset, setSkipPreset] = useState(false) // after "Book another", start empty again
   const [notes, setNotes] = useState('')
+  const [styleSel, setStyleSel] = useState(undefined) // optional hairstyle: undefined = follow ?style=, null = none chosen, else a hairstyle_id
   const [month, setMonth] = useState({ y: today.getFullYear(), m: today.getMonth() })
   const [done, setDone] = useState(null)
 
@@ -65,6 +66,11 @@ export default function Book() {
   const sel = { ...selRaw, service: selRaw.service ?? presetService }
   const service = services.find((s) => s.service_id === sel.service)
   const barber = barbers.find((b) => b.barber_id === sel.barber)
+  // Optional hairstyle under the chosen service. It only goes into the appointment notes; price, duration and barbers still come from the service.
+  const serviceStyles = service ? hairstyles.filter((h) => h.is_active && h.service_id === service.service_id) : []
+  const wantedStyle = skipPreset ? null : params.get('style')
+  const styleId = styleSel !== undefined ? styleSel : serviceStyles.find((h) => String(h.hairstyle_id) === wantedStyle)?.hairstyle_id ?? null
+  const hairstyle = serviceStyles.find((h) => h.hairstyle_id === styleId) || null
   const barberChoices = service ? barbers.filter((b) => b.is_active && barberOffers(b, service.service_id) && activeSchedules(b.barber_id).length) : []
 
   const workDays = barber ? new Set(activeSchedules(barber.barber_id).map((s) => DAYS.indexOf(s.day_of_week))) : new Set()
@@ -87,12 +93,13 @@ export default function Book() {
   const confirm = async () => {
     const res = await addAppointment({
       barber_id: barber.barber_id, service_id: service.service_id, appointment_date: sel.date,
-      start_time: toHHMM(sel.time), end_time: toHHMM(sel.time + service.duration_minutes), notes: notes.trim(),
+      start_time: toHHMM(sel.time), end_time: toHHMM(sel.time + service.duration_minutes),
+      notes: [hairstyle ? `Hairstyle: ${hairstyle.name}.` : '', notes.trim()].filter(Boolean).join(' '),
     }, user.users_id)
     if (!res.ok) { window.alert(res.error); pick({ time: null }); reloadSlots(); return }
     setDone(res.appointment)
   }
-  const reset = () => { setSel({ service: null, barber: null, date: null, time: null }); setSkipPreset(true); setNotes(''); setDone(null) }
+  const reset = () => { setSel({ service: null, barber: null, date: null, time: null }); setSkipPreset(true); setStyleSel(undefined); setNotes(''); setDone(null) }
 
   if (done) {
     return (
@@ -137,6 +144,17 @@ export default function Book() {
             ))}
           </div>
           <ServiceBar service={service} />
+          {serviceStyles.length > 0 && (
+            <div className="style-pick">
+              <small>Hairstyle (optional)</small>
+              <div role="group" aria-label="Choose a hairstyle (optional)">
+                {serviceStyles.map((h) => (
+                  <button type="button" key={h.hairstyle_id} className={`style-chip${hairstyle?.hairstyle_id === h.hairstyle_id ? ' on' : ''}`} aria-pressed={hairstyle?.hairstyle_id === h.hairstyle_id}
+                    onClick={() => setStyleSel(hairstyle?.hairstyle_id === h.hairstyle_id ? null : h.hairstyle_id)}>{h.name}</button>
+                ))}
+              </div>
+            </div>
+          )}
         </Panel>
 
         <Panel n={2} step={step} title="Choose Barber" sub="Select your master artisan barber for this session.">
@@ -199,6 +217,7 @@ export default function Book() {
         <Panel n={4} step={step} title="Review Summary" sub="Check the details, then confirm.">
           <dl className="review">
             <div><dt>Service</dt><dd>{service ? `${service.service_name} · ${service.duration_minutes} mins` : 'Not selected'}</dd><b>{service ? peso(service.price) : ''}</b></div>
+            {hairstyle && <div><dt>Hairstyle</dt><dd>{hairstyle.name}</dd></div>}
             <div><dt>Barber</dt><dd>{barber ? fullName(barber) : 'Not selected'}</dd></div>
             <div><dt>Date</dt><dd>{sel.date ? prettyDate(sel.date) : 'Not selected'}</dd></div>
             <div><dt>Time</dt><dd>{sel.time !== null && service ? `${fmt12(toHHMM(sel.time))} – ${fmt12(toHHMM(sel.time + service.duration_minutes))}` : 'Not selected'}</dd></div>

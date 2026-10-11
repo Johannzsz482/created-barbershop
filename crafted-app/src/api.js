@@ -27,6 +27,7 @@ function normalize(d) {
   return {
     ...d,
     users: d.users.map((u) => ({ ...u, role: title(u.role) })),
+    hairstyles: d.hairstyles || [],
     schedules: d.schedules.map((s) => ({ ...s, day_of_week: title(s.day_of_week) })),
     appointments: d.appointments.map((a) => ({ ...a, status: title(a.status) })),
     logs: d.logs.map((l) => ({ ...l, old_status: title(l.old_status), new_status: title(l.new_status) })),
@@ -36,7 +37,7 @@ function normalize(d) {
 // ---- shared store ----
 let state = {
   ready: false, offline: false,
-  users: [], barbers: [], services: [], schedules: [], barberServices: [], appointments: [], logs: [],
+  users: [], barbers: [], services: [], hairstyles: [], schedules: [], barberServices: [], appointments: [], logs: [],
   unreadMessages: 0,   // Admin only: unread Contact Us messages (the header and tab badges read this)
   unreadReplies: { uid: null, n: 0 },   // Customer/Barber: admin replies not opened yet, for that account only (see unreadRepliesFor)
 }

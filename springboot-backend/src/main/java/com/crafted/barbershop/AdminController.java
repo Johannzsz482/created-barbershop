@@ -22,8 +22,13 @@ import java.sql.Statement;
 import java.sql.Time;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 // Admin-only management routes (SecurityConfig blocks everyone else with 403)
@@ -47,6 +52,7 @@ public class AdminController {
 
     public record ServiceBody(String service_name, String description, BigDecimal price, Integer duration_minutes, String image_url) {}
     public record BarberBody(String first_name, String last_name, String bio, String specialty, String photo_url, Integer user_id) {}
+    public record HairstyleBody(String name, Boolean is_active) {}
     public record AssignBody(List<Integer> serviceIds) {}
     public record AppointmentBody(Integer userId, Integer barberId, Integer serviceId, String appointmentDate,
                                   String startTime, String notes) {}
@@ -248,7 +254,64 @@ public class AdminController {
         Integer used = jdbc.queryForObject("SELECT COUNT(*) FROM appointments WHERE service_id = ?", Integer.class, id);
         if (used != null && used > 0) return Api.err(HttpStatus.CONFLICT, "This service has bookings. Deactivate it instead.");
         jdbc.update("DELETE FROM barber_services WHERE service_id = ?", id);
+        jdbc.update("DELETE FROM hairstyles WHERE service_id = ?", id);   // its hairstyles are only a catalogue list, not booking history
         return done(jdbc.update("DELETE FROM services WHERE service_id = ?", id));
+    }
+
+    // ---------- hairstyles (individual styles listed under a service; they never have a price or duration of their own) ----------
+    private static String hairstyleName(HairstyleBody b) {
+        if (b == null || b.name() == null) return null;
+        String n = b.name().trim();
+        return n.isEmpty() || n.length() > 100 ? null : n;
+    }
+
+    private boolean hairstyleNameTaken(long serviceId, String name, long exceptId) {
+        Integer n = jdbc.queryForObject(
+            "SELECT COUNT(*) FROM hairstyles WHERE service_id = ? AND LOWER(name) = LOWER(?) AND hairstyle_id <> ?",
+            Integer.class, serviceId, name, exceptId);
+        return n != null && n > 0;
+    }
+
+    @PostMapping("/services/{id}/hairstyles")
+    public ResponseEntity<?> addHairstyle(@PathVariable long id, @RequestBody HairstyleBody b) {
+        String name = hairstyleName(b);
+        if (name == null) return Api.err(HttpStatus.BAD_REQUEST, "Enter a hairstyle name (up to 100 characters).");
+        Integer exists = jdbc.queryForObject("SELECT COUNT(*) FROM services WHERE service_id = ?", Integer.class, id);
+        if (exists == null || exists == 0) return Api.err(HttpStatus.NOT_FOUND, "Service not found.");
+        if (hairstyleNameTaken(id, name, 0)) return Api.err(HttpStatus.CONFLICT, "This category already has a hairstyle with that name.");
+        try {
+            jdbc.update("INSERT INTO hairstyles (service_id, name, display_order, is_active) " +
+                "SELECT ?, ?, COALESCE(MAX(display_order), 0) + 1, TRUE FROM hairstyles WHERE service_id = ?", id, name, id);
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            return Api.err(HttpStatus.CONFLICT, "This category already has a hairstyle with that name.");
+        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("message", "Hairstyle added."));
+    }
+
+    // Rename a hairstyle and/or switch it on or off. Its category (service) and picture key never change here.
+    @PutMapping("/hairstyles/{id}")
+    public ResponseEntity<?> editHairstyle(@PathVariable long id, @RequestBody HairstyleBody b) {
+        String name = hairstyleName(b);
+        if (name == null) return Api.err(HttpStatus.BAD_REQUEST, "Enter a hairstyle name (up to 100 characters).");
+        List<Integer> owner = jdbc.queryForList("SELECT service_id FROM hairstyles WHERE hairstyle_id = ?", Integer.class, id);
+        if (owner.isEmpty()) return Api.err(HttpStatus.NOT_FOUND, "Not found.");
+        if (hairstyleNameTaken(owner.get(0), name, id)) return Api.err(HttpStatus.CONFLICT, "This category already has a hairstyle with that name.");
+        try {
+            return done(jdbc.update("UPDATE hairstyles SET name = ?, is_active = COALESCE(?, is_active) WHERE hairstyle_id = ?",
+                name, b.is_active(), id));
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            return Api.err(HttpStatus.CONFLICT, "This category already has a hairstyle with that name.");
+        }
+    }
+
+    @PatchMapping("/hairstyles/{id}/toggle")
+    public ResponseEntity<?> toggleHairstyle(@PathVariable long id) {
+        return done(jdbc.update("UPDATE hairstyles SET is_active = NOT is_active WHERE hairstyle_id = ?", id));
+    }
+
+    @DeleteMapping("/hairstyles/{id}")
+    public ResponseEntity<?> deleteHairstyle(@PathVariable long id) {
+        return done(jdbc.update("DELETE FROM hairstyles WHERE hairstyle_id = ?", id));
     }
 
     // ---------- barbers ----------
@@ -295,17 +358,54 @@ public class AdminController {
         return done(jdbc.update("UPDATE barbers SET is_active = NOT is_active WHERE barber_id = ?", id));
     }
 
-    // Replace the list of services a barber offers (fails if it would remove a service that has bookings)
+    // Make the services a barber offers match the submitted list, changing only the difference.
+    // appointments has a FOREIGN KEY (barber_id, service_id) -> barber_services, so a pair that any appointment
+    // (whatever its status) still uses can never be deleted. Unchanged pairs are therefore left alone,
+    // new pairs are inserted, and unticking a pair that has appointments is refused with 409 and nothing is changed.
     @PutMapping("/barbers/{id}/services")
     @Transactional
     public ResponseEntity<?> assignServices(@PathVariable long id, @RequestBody AssignBody body) {
-        jdbc.update("DELETE FROM barber_services WHERE barber_id = ?", id);
-        if (body.serviceIds() != null) {
-            for (Integer serviceId : body.serviceIds()) {
-                jdbc.update("INSERT INTO barber_services (barber_id, service_id) VALUES (?, ?)", id, serviceId);
+        // Lock the barber row (the booking code does the same) so a booking cannot slip in between the check and the delete
+        if (jdbc.queryForList("SELECT barber_id FROM barbers WHERE barber_id = ? FOR UPDATE", id).isEmpty()) {
+            return Api.err(HttpStatus.NOT_FOUND, "Barber not found.");
+        }
+        Set<Integer> wanted = new LinkedHashSet<>();
+        if (body.serviceIds() != null) body.serviceIds().stream().filter(Objects::nonNull).forEach(wanted::add);
+        List<Integer> current = jdbc.queryForList("SELECT service_id FROM barber_services WHERE barber_id = ?", Integer.class, id);
+
+        List<Integer> blocked = new ArrayList<>();
+        for (Integer serviceId : serviceIdsToRemove(current, wanted)) {
+            Integer used = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM appointments WHERE barber_id = ? AND service_id = ?", Integer.class, id, serviceId);
+            if (used != null && used > 0) blocked.add(serviceId);
+        }
+        if (!blocked.isEmpty()) {
+            List<String> names = new ArrayList<>();
+            for (Integer serviceId : blocked) {
+                List<String> n = jdbc.queryForList("SELECT service_name FROM services WHERE service_id = ?", String.class, serviceId);
+                names.add(n.isEmpty() ? "#" + serviceId : n.get(0));
             }
+            return Api.err(HttpStatus.CONFLICT, "This barber still has appointments for " + String.join(", ", names)
+                + ", so the service can't be removed. Keep it ticked, or deactivate the barber or service instead.");
+        }
+
+        for (Integer serviceId : serviceIdsToRemove(current, wanted)) {
+            jdbc.update("DELETE FROM barber_services WHERE barber_id = ? AND service_id = ?", id, serviceId);
+        }
+        for (Integer serviceId : serviceIdsToAdd(current, wanted)) {
+            jdbc.update("INSERT INTO barber_services (barber_id, service_id) VALUES (?, ?)", id, serviceId);
         }
         return ResponseEntity.ok(Map.of("message", "Services updated."));
+    }
+
+    // Pairs to delete: assigned now but not in the submitted list
+    static List<Integer> serviceIdsToRemove(Collection<Integer> current, Collection<Integer> wanted) {
+        return current.stream().filter(x -> !wanted.contains(x)).toList();
+    }
+
+    // Pairs to insert: in the submitted list but not assigned yet (duplicates in the request are ignored)
+    static List<Integer> serviceIdsToAdd(Collection<Integer> current, Collection<Integer> wanted) {
+        return wanted.stream().filter(x -> !current.contains(x)).distinct().toList();
     }
 
 
